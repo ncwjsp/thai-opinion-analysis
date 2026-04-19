@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thai Opinion Analysis</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --pos: #22c55e; --neg: #ef4444; --neu: #94a3b8;
+      --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0;
+      --text: #1e293b; --muted: #64748b; --accent: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); }
+
+    header {
+      background: linear-gradient(135deg, #1e40af, #3b82f6);
+      color: white; padding: 2rem;
+      text-align: center;
+    }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p  { margin-top: .4rem; opacity: .85; font-size: .95rem; }
+
+    .search-bar {
+      display: flex; gap: .75rem; justify-content: center;
+      padding: 1.5rem 1rem;
+      flex-wrap: wrap;
+    }
+    .search-bar input {
+      padding: .75rem 1.25rem; border: 2px solid var(--border);
+      border-radius: 8px; font-size: 1.1rem; width: 340px;
+      outline: none; transition: border-color .2s;
+    }
+    .search-bar input:focus { border-color: var(--accent); }
+    .search-bar button {
+      padding: .75rem 1.75rem; background: var(--accent); color: white;
+      border: none; border-radius: 8px; font-size: 1rem;
+      cursor: pointer; font-weight: 600;
+      transition: background .2s;
+    }
+    .search-bar button:hover { background: #2563eb; }
+    .search-bar button:disabled { background: #93c5fd; cursor: not-allowed; }
+
+    .options {
+      display: flex; gap: 1rem; justify-content: center;
+      flex-wrap: wrap; padding: 0 1rem .75rem;
+    }
+    .options label { font-size: .875rem; color: var(--muted); cursor: pointer; }
+    .options input[type=checkbox] { accent-color: var(--accent); }
+    .options select { padding: .35rem .6rem; border-radius: 6px; border: 1px solid var(--border); }
+
+    #status {
+      text-align: center; color: var(--muted); font-size: .9rem;
+      padding: .5rem; min-height: 1.5rem;
+    }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+    /* Sentiment badges */
+    .badge {
+      display: inline-block; padding: .2rem .6rem; border-radius: 9999px;
+      font-size: .75rem; font-weight: 700; text-transform: uppercase;
+    }
+    .badge-positive { background: #dcfce7; color: #15803d; }
+    .badge-negative { background: #fee2e2; color: #b91c1c; }
+    .badge-neutral  { background: #f1f5f9; color: #475569; }
+
+    /* Stats row */
+    .stat-row {
+      display: flex; gap: 1rem; justify-content: space-around;
+      margin-bottom: 1rem; flex-wrap: wrap;
+    }
+    .stat-box { text-align: center; }
+    .stat-box .num { font-size: 2rem; font-weight: 700; }
+    .stat-box .lbl { font-size: .8rem; color: var(--muted); }
+    .pos { color: var(--pos); } .neg { color: var(--neg); } .neu { color: var(--neu); }
+
+    /* Word cloud */
+    #wordcloud { display: flex; flex-wrap: wrap; gap: .5rem; align-content: flex-start; min-height: 120px; }
+    .wc-word {
+      display: inline-block; padding: .3rem .75rem;
+      background: #eff6ff; color: #1d4ed8;
+      border-radius: 9999px; font-weight: 600;
+      cursor: default; transition: transform .15s;
+    }
+    .wc-word:hover { transform: scale(1.1); }
+
+    /* Table */
+    #resultsSection { margin-top: 1.25rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    th { background: #f1f5f9; text-align: left; padding: .6rem .8rem; color: var(--muted); font-size: .78rem; text-transform: uppercase; }
+    td { padding: .6rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:hover td { background: #f8fafc; }
+    td.text-cell { max-width: 420px; word-break: break-word; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Platform pills */
+    .plat { display:inline-block; padding:.15rem .55rem; border-radius:4px; font-size:.72rem; font-weight:600; }
+    .plat-sanook  { background:#fef9c3; color:#854d0e; }
+    .plat-khaosod { background:#fce7f3; color:#9d174d; }
+    .plat-pantip  { background:#ede9fe; color:#5b21b6; }
+
+    /* Region bar */
+    .region-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; font-size: .85rem; }
+    .region-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 4px; height: 8px; }
+    .region-bar { height: 8px; border-radius: 4px; background: var(--accent); }
+
+    #placeholder { text-align:center; padding: 3rem 1rem; color: var(--muted); }
+    #placeholder svg { width: 64px; opacity: .3; display:block; margin: 0 auto 1rem; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🇹🇭 Thai Online Opinion Analysis</h1>
+  <p>Enter a Thai keyword to crawl news and community posts, then analyze sentiment</p>
+</header>
+
+<div class="search-bar">
+  <input id="kwInput" type="text" placeholder="พิมพ์คำค้นหาภาษาไทย เช่น รัฐบาล" />
+  <button id="searchBtn" onclick="doSearch()">วิเคราะห์</button>
+</div>
+
+<div class="options">
+  <label><input type="checkbox" id="chk-sanook" checked /> Thai News (Google News RSS)</label>
+  <label><input type="checkbox" id="chk-pantip" checked /> Pantip Community</label>
+  <label>Model:
+    <select id="modelSel">
+      <option value="xlm-roberta">XLM-RoBERTa</option>
+      <option value="wangchanberta">WangchanBERTa</option>
+    </select>
+  </label>
+  <label>Max per source:
+    <select id="maxItems">
+      <option value="20">20</option>
+      <option value="30" selected>30</option>
+      <option value="50">50</option>
+    </select>
+  </label>
+</div>
+
+<div id="status"></div>
+
+<main>
+  <div id="placeholder">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    ป้อนคำค้นหาแล้วกด "วิเคราะห์" เพื่อเริ่มต้น
+  </div>
+
+  <div id="results" class="hidden">
+    <!-- Stats -->
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="stat-row">
+        <div class="stat-box"><div class="num" id="stTotal">—</div><div class="lbl">บทความทั้งหมด</div></div>
+        <div class="stat-box"><div class="num pos" id="stPos">—</div><div class="lbl">เชิงบวก</div></div>
+        <div class="stat-box"><div class="num neg" id="stNeg">—</div><div class="lbl">เชิงลบ</div></div>
+        <div class="stat-box"><div class="num neu" id="stNeu">—</div><div class="lbl">กลาง</div></div>
+        <div class="stat-box"><div class="num" id="stDedup" style="color:#a855f7">—</div><div class="lbl">หลัง dedup</div></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Sentiment pie -->
+      <div class="card">
+        <h2>การกระจายความรู้สึก</h2>
+        <canvas id="pieChart" height="200"></canvas>
+      </div>
+      <!-- Platform bar -->
+      <div class="card">
+        <h2>จำนวนตามแหล่งข้อมูล</h2>
+        <canvas id="barChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:1.25rem">
+      <!-- Word cloud -->
+      <div class="card">
+        <h2>คำยอดนิยม (Word Cloud)</h2>
+        <div id="wordcloud"></div>
+      </div>
+      <!-- Region -->
+      <div class="card">
+        <h2>การกระจายตามภูมิภาค</h2>
+        <div id="regionList"></div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div id="resultsSection" class="card" style="margin-top:1.25rem; overflow-x:auto">
+      <h2>ผลลัพธ์รายบทความ</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>แหล่ง</th>
+            <th>ชื่อ / เนื้อหา</th>
+            <th>ความรู้สึก</th>
+            <th>ความมั่นใจ</th>
+            <th>ภูมิภาค</th>
+            <th>วันที่</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = '';   // same origin; change to 'http://localhost:8000' for dev
+
+let pieChart = null, barChart = null;
+
+async function doSearch() {
+  const kw = document.getElementById('kwInput').value.trim();
+  if (!kw) { alert('กรุณาป้อนคำค้นหา'); return; }
+
+  const sources = ['sanook','khaosod','pantip'].filter(s => {
+    const el = document.getElementById('chk-'+s);
+    return el ? el.checked : false;
+  });
+  if (!sources.length) { alert('กรุณาเลือกแหล่งข้อมูลอย่างน้อยหนึ่งแหล่ง'); return; }
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  setStatus('⏳ กำลังรวบรวมข้อมูลและวิเคราะห์ความรู้สึก...');
+  document.getElementById('results').classList.add('hidden');
+  document.getElementById('placeholder').classList.add('hidden');
+
+  try {
+    const resp = await fetch(`${API}/api/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keyword: kw,
+        sources,
+        max_items_per_source: parseInt(document.getElementById('maxItems').value),
+        model: document.getElementById('modelSel').value,
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || 'เกิดข้อผิดพลาด');
+    }
+    const data = await resp.json();
+    renderResults(data);
+    setStatus(`✅ พบ ${data.total_crawled} รายการ → หลัง dedup ${data.total_after_dedup} รายการ`);
+  } catch (e) {
+    setStatus('❌ ' + e.message);
+    document.getElementById('placeholder').classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderResults(data) {
+  const s = data.sentiment_summary;
+  document.getElementById('stTotal').textContent = s.total;
+  document.getElementById('stPos').textContent   = s.positive;
+  document.getElementById('stNeg').textContent   = s.negative;
+  document.getElementById('stNeu').textContent   = s.neutral;
+  document.getElementById('stDedup').textContent = data.total_after_dedup;
+
+  renderPie(s);
+  renderBar(data.platform_breakdown);
+  renderWordCloud(data.top_keywords);
+  renderRegions(data.region_distribution);
+  renderTable(data.articles);
+
+  document.getElementById('results').classList.remove('hidden');
+}
+
+function renderPie(s) {
+  if (pieChart) pieChart.destroy();
+  const ctx = document.getElementById('pieChart').getContext('2d');
+  pieChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['เชิงบวก', 'เชิงลบ', 'กลาง'],
+      datasets: [{ data: [s.positive, s.negative, s.neutral],
+        backgroundColor: ['#22c55e','#ef4444','#94a3b8'],
+        borderWidth: 2 }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
+  });
+}
+
+function renderBar(platforms) {
+  if (barChart) barChart.destroy();
+  const ctx = document.getElementById('barChart').getContext('2d');
+  const labels = platforms.map(p => p.platform);
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'เชิงบวก', data: platforms.map(p=>p.positive),  backgroundColor: '#22c55e' },
+        { label: 'เชิงลบ',  data: platforms.map(p=>p.negative),  backgroundColor: '#ef4444' },
+        { label: 'กลาง',    data: platforms.map(p=>p.neutral),   backgroundColor: '#94a3b8' },
+      ]
+    },
+    options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+               plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+function renderWordCloud(words) {
+  const el = document.getElementById('wordcloud');
+  el.innerHTML = '';
+  const max = words[0]?.count || 1;
+  words.forEach(w => {
+    const sz = 0.75 + (w.count / max) * 1.5;
+    const span = document.createElement('span');
+    span.className = 'wc-word';
+    span.textContent = w.word;
+    span.style.fontSize = sz + 'rem';
+    span.title = `${w.word}: ${w.count} ครั้ง`;
+    el.appendChild(span);
+  });
+}
+
+function renderRegions(regions) {
+  const el = document.getElementById('regionList');
+  el.innerHTML = '';
+  const max = regions[0]?.count || 1;
+  regions.slice(0, 10).forEach(r => {
+    const pct = Math.round((r.count / max) * 100);
+    el.innerHTML += `
+      <div class="region-row">
+        <span style="min-width:100px;font-size:.82rem">${r.region}</span>
+        <div class="region-bar-wrap"><div class="region-bar" style="width:${pct}%"></div></div>
+        <span style="font-size:.8rem;color:var(--muted)">${r.count}</span>
+      </div>`;
+  });
+}
+
+function renderTable(articles) {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  articles.forEach((a, i) => {
+    const date = a.published_at ? new Date(a.published_at).toLocaleDateString('th-TH') : '—';
+    const badge = `<span class="badge badge-${a.sentiment_label}">${labelTh(a.sentiment_label)}</span>`;
+    const conf  = a.confidence_score != null ? (a.confidence_score * 100).toFixed(1) + '%' : '—';
+    const link  = a.url ? `<a href="${a.url}" target="_blank">${esc(a.title || a.text_content.slice(0,80))}</a>`
+                        : esc(a.title || a.text_content.slice(0,80));
+    tbody.innerHTML += `
+      <tr>
+        <td>${i+1}</td>
+        <td><span class="plat plat-${a.source_platform}">${a.source_platform}</span></td>
+        <td class="text-cell">${link}</td>
+        <td>${badge}</td>
+        <td>${conf}</td>
+        <td>${a.region || '—'}</td>
+        <td>${date}</td>
+      </tr>`;
+  });
+}
+
+function labelTh(lbl) {
+  return { positive: 'บวก', negative: 'ลบ', neutral: 'กลาง' }[lbl] || lbl || '—';
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+// Allow Enter key to trigger search
+document.getElementById('kwInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+</script>
+</body>
+</html>

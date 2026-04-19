@@ -1,0 +1,35 @@
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# Web crawling
+scrapy==2.11.2
+selenium==4.21.0
+webdriver-manager==4.0.1
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.2.2
+
+# Thai NLP
+pythainlp==5.0.4
+attacut==1.0.6
+
+# Sentiment analysis
+transformers==4.41.2
+torch==2.3.1
+sentencepiece==0.2.0
+protobuf>=4.25.0
+
+# Database
+sqlalchemy==2.0.30
+aiosqlite==0.20.0
+
+# Deduplication
+datasketch==1.6.5
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.7.3
+pydantic-settings==2.3.1
+httpx==0.27.0
+tqdm==4.66.4
