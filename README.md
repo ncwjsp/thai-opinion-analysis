@@ -57,7 +57,7 @@ The system is organized into four layers:
 | Frontend               | Vanilla JS + Chart.js                            |
 
 ## Setup
-### *This project requires Python 3.9+
+### *This project requires Python 3.10+
 
 ```bash
 # 1. Create virtual environment
