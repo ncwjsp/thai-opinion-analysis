@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings
 from pathlib import Path
 
@@ -5,9 +6,18 @@ BASE_DIR = Path(__file__).parent
 
 
 class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = f"sqlite+aiosqlite:///{BASE_DIR}/opinion_data.db"
-    DATABASE_SYNC_URL: str = f"sqlite:///{BASE_DIR}/opinion_data.db"
+    # Database - supports Railway volume mount
+    @property
+    def DATABASE_URL(self) -> str:
+        """Returns database URL with Railway volume path if available"""
+        volume_path = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", ".")
+        return f"sqlite+aiosqlite:///{volume_path}/opinion_data.db"
+    
+    @property
+    def DATABASE_SYNC_URL(self) -> str:
+        """Returns sync database URL with Railway volume path if available"""
+        volume_path = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", ".")
+        return f"sqlite:///{volume_path}/opinion_data.db"
 
     # Sentiment model — swap to "airesearch/wangchanberta-base-att-spm-uncased"
     # for WangchanBERTa (requires fine-tuned checkpoint for sentiment)
