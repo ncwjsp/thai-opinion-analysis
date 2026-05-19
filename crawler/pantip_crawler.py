@@ -40,15 +40,20 @@ def crawl_pantip(keyword: str, max_items: int = 30) -> list[RawItem]:
         for attempt in range(3):
             try:
                 resp = requests.get(url, headers=HEADERS, timeout=20)
+                if resp.status_code == 429:
+                    wait = 10 * (attempt + 1)
+                    import logging
+                    logging.getLogger(__name__).warning("Pantip page %d attempt %d failed: 429, waiting %ds", page, attempt+1, wait)
+                    _time.sleep(wait)
+                    continue
                 resp.raise_for_status()
                 break
             except Exception as exc:
-                import time as _t
                 import logging
                 logging.getLogger(__name__).warning("Pantip page %d attempt %d failed: %s", page, attempt+1, exc)
                 if attempt == 2:
                     return collected
-                _t.sleep(2 ** attempt)
+                _time.sleep(2 ** attempt)
         if resp is None:
             break
 
@@ -90,9 +95,9 @@ def crawl_pantip(keyword: str, max_items: int = 30) -> list[RawItem]:
             ))
 
         page += 1
-        if page > 5:    # cap at 5 pages
+        if page > 3:    # cap at 3 pages to reduce rate-limiting
             break
-        _time.sleep(0.5)   # polite delay
+        _time.sleep(3.0)   # longer delay to avoid 429
 
     return collected
 
