@@ -58,7 +58,7 @@ class SentimentAnalyzer:
 
     def _api_predict(self, texts: list[str]) -> list[SentimentResult]:
         import requests as _req
-        url = f"https://api-inference.huggingface.co/models/{self._model_id}"
+        url = f"https://router.huggingface.co/hf-inference/models/{self._model_id}"
         headers = {"Authorization": f"Bearer {self._hf_token}"}
         results = []
         # API accepts up to 100 inputs per call
