@@ -103,6 +103,38 @@
       padding: .5rem; min-height: 1.5rem;
     }
 
+    /* Loading overlay */
+    #loadingOverlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(3px);
+      z-index: 9999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+    }
+    #loadingOverlay.active { display: flex; }
+    .spinner {
+      width: 56px; height: 56px;
+      border: 5px solid rgba(255,255,255,0.2);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text {
+      color: #ffffff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .loading-sub {
+      color: rgba(255,255,255,0.7);
+      font-size: 0.85rem;
+    }
+
     main { max-width: 1100px; margin: 0 auto; padding: 1rem 1rem 3rem; }
 
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
@@ -173,6 +205,13 @@
 </head>
 <body>
 
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">กำลังวิเคราะห์...</div>
+  <div class="loading-sub">กำลังรวบรวมข้อมูลและวิเคราะห์ความรู้สึก กรุณารอสักครู่</div>
+</div>
+
 <header>
   <h1>Thai Online Opinion Analysis</h1>
   <p>Enter a Thai keyword to crawl news and community posts, then analyze sentiment</p>
@@ -219,7 +258,7 @@
         <div class="stat-box"><div class="num pos" id="stPos">—</div><div class="lbl">เชิงบวก</div></div>
         <div class="stat-box"><div class="num neg" id="stNeg">—</div><div class="lbl">เชิงลบ</div></div>
         <div class="stat-box"><div class="num neu" id="stNeu">—</div><div class="lbl">กลาง</div></div>
-        <div class="stat-box"><div class="num" id="stDedup" style="color:#a855f7">—</div><div class="lbl">หลัง dedup</div></div>
+        <div class="stat-box"><div class="num" id="stDedup" style="color:#a855f7">—</div><div class="lbl">หลังกรองซ้ำ</div></div>
       </div>
     </div>
 
@@ -279,15 +318,16 @@ async function doSearch() {
   const kw = document.getElementById('kwInput').value.trim();
   if (!kw) { alert('กรุณาป้อนคำค้นหา'); return; }
 
-  const sources = ['sanook','khaosod','pantip'].filter(s => {
-    const el = document.getElementById('chk-'+s);
-    return el ? el.checked : false;
-  });
+  const sources = [];
+  if (document.getElementById('chk-sanook')?.checked) sources.push('google_news');
+  if (document.getElementById('chk-pantip')?.checked) sources.push('pantip');
   if (!sources.length) { alert('กรุณาเลือกแหล่งข้อมูลอย่างน้อยหนึ่งแหล่ง'); return; }
 
   const btn = document.getElementById('searchBtn');
+  const overlay = document.getElementById('loadingOverlay');
   btn.disabled = true;
-  setStatus('⏳ กำลังรวบรวมข้อมูลและวิเคราะห์ความรู้สึก...');
+  overlay.classList.add('active');
+  setStatus('');
   document.getElementById('results').classList.add('hidden');
   document.getElementById('placeholder').classList.add('hidden');
 
@@ -308,12 +348,13 @@ async function doSearch() {
     }
     const data = await resp.json();
     renderResults(data);
-    setStatus(`✅ พบ ${data.total_crawled} รายการ → หลัง dedup ${data.total_after_dedup} รายการ`);
+    setStatus(`✅ พบ ${data.total_crawled} รายการ → หลังกรองซ้ำ ${data.total_after_dedup} รายการ`);
   } catch (e) {
     setStatus('❌ ' + e.message);
     document.getElementById('placeholder').classList.remove('hidden');
   } finally {
     btn.disabled = false;
+    overlay.classList.remove('active');
   }
 }
 
