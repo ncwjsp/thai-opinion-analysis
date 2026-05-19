@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
 from config import settings
 from database import Article, init_db, get_db
@@ -83,9 +83,8 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
     # ── 1. Crawl (run blocking crawlers in thread-pool) ───────────────────────
     crawl_tasks = []
 
-    # "sanook" and "khaosod" are sourced via Google News RSS
-    # (individual sites block automated requests with Cloudflare)
-    if "sanook" in req.sources or "khaosod" in req.sources:
+    # Google News RSS covers Thai news broadly (incl. Sanook, Khaosod, etc.)
+    if "google_news" in req.sources or "sanook" in req.sources or "khaosod" in req.sources:
         crawl_tasks.append(
             loop.run_in_executor(None, crawl_google_news, keyword, max_items * 2)
         )
@@ -141,9 +140,21 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
 
     await db.commit()
 
-    # ── 5. Build aggregated response from DB ─────────────────────────────────
+    # ── 5. Build aggregated response from DB (only selected sources) ─────────
+    # source_platform is stored as e.g. "google_news(Ch7.com)" or "pantip"
+    # so we match by prefix using LIKE
+    source_filters = []
+    for src in req.sources:
+        if src in ("google_news", "sanook", "khaosod"):
+            source_filters.append(Article.source_platform.like("google_news%"))
+        else:
+            source_filters.append(Article.source_platform.like(f"{src}%"))
+
     result = await db.execute(
-        select(Article).where(Article.keyword == keyword)
+        select(Article).where(
+            Article.keyword == keyword,
+            or_(*source_filters) if source_filters else Article.keyword == keyword,
+        )
     )
     all_articles: list[Article] = result.scalars().all()
 
