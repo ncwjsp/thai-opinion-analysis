@@ -3,22 +3,20 @@ Sentiment analysis module.
 
 Supported models:
   - "xlm-roberta"   → cardiffnlp/twitter-xlm-roberta-base-sentiment
-                       Multilingual (100 languages incl. Thai), 3 classes.
-                       Labels: LABEL_0=negative, LABEL_1=neutral, LABEL_2=positive
-
   - "wangchanberta" → phoner45/wangchan-sentiment-thai-text-model
-                       WangchanBERTa fine-tuned on Thai sentiment dataset.
-                       ~94.57% accuracy on Thai text (Nokkaew et al. 2023).
-                       Labels: pos=positive, neu=neutral, neg=negative
+
+Inference strategy (auto-selected):
+  1. HuggingFace Inference API  — if HF_API_TOKEN env var is set (no local RAM needed)
+  2. Local pipeline              — fallback (requires ~1GB RAM)
 """
 
 from __future__ import annotations
 
 import logging
+import os
+import time
 from dataclasses import dataclass
 from typing import Literal
-
-from transformers import pipeline, Pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -29,71 +27,98 @@ MODEL_IDS: dict[str, str] = {
     "wangchanberta": "phoner45/wangchan-sentiment-thai-text-model",
 }
 
-# Unified label map for both models → canonical positive/neutral/negative
 _LABEL_MAP: dict[str, SentimentLabel] = {
-    # cardiffnlp XLM-RoBERTa outputs
-    "LABEL_0": "negative",
-    "LABEL_1": "neutral",
-    "LABEL_2": "positive",
-    # phoner45 WangchanBERTa outputs
-    "pos": "positive",
-    "neu": "neutral",
-    "neg": "negative",
-    # Pass-through (already canonical)
-    "positive": "positive",
-    "neutral":  "neutral",
-    "negative": "negative",
+    "LABEL_0": "negative", "LABEL_1": "neutral", "LABEL_2": "positive",
+    "pos": "positive", "neu": "neutral", "neg": "negative",
+    "positive": "positive", "neutral": "neutral", "negative": "negative",
 }
 
 
 @dataclass
 class SentimentResult:
     label: SentimentLabel
-    score: float   # model confidence 0.0 – 1.0
+    score: float
 
 
 class SentimentAnalyzer:
-    """
-    Lazy-loading wrapper around a HuggingFace pipeline.
-
-    Usage:
-        analyzer = SentimentAnalyzer()
-        result   = analyzer.predict("ฉันรักประเทศไทย")
-        print(result.label, result.score)
-    """
-
     def __init__(self, model_name: str = "xlm-roberta"):
         if model_name not in MODEL_IDS:
             raise ValueError(f"Unknown model '{model_name}'. Choose: {list(MODEL_IDS)}")
         self._model_name = model_name
         self._model_id   = MODEL_IDS[model_name]
-        self._pipeline: Pipeline | None = None
+        self._pipeline   = None
+        self._hf_token   = os.environ.get("HF_API_TOKEN", "").strip()
+        self._use_api    = bool(self._hf_token)
+        if self._use_api:
+            logger.info("Sentiment: using HuggingFace Inference API for %s", self._model_id)
+        else:
+            logger.info("Sentiment: using local pipeline for %s", self._model_id)
 
-    def _load(self) -> Pipeline:
+    # ── HuggingFace Inference API ────────────────────────────────────────────
+
+    def _api_predict(self, texts: list[str]) -> list[SentimentResult]:
+        import requests as _req
+        url = f"https://api-inference.huggingface.co/models/{self._model_id}"
+        headers = {"Authorization": f"Bearer {self._hf_token}"}
+        results = []
+        # API accepts up to 100 inputs per call
+        for i in range(0, len(texts), 100):
+            batch = texts[i:i + 100]
+            for attempt in range(3):
+                resp = _req.post(url, headers=headers, json={"inputs": batch}, timeout=30)
+                if resp.status_code == 503:
+                    # Model is loading on HF side — wait and retry
+                    wait = resp.json().get("estimated_time", 20)
+                    logger.info("HF model loading, waiting %.0fs...", wait)
+                    time.sleep(min(float(wait), 30))
+                    continue
+                resp.raise_for_status()
+                break
+            raw = resp.json()
+            # Response shape: [[{label, score}, ...], ...]  or [{label,score},...]
+            if isinstance(raw, list) and raw and isinstance(raw[0], list):
+                # multi-input: list of lists — take highest-score item per input
+                for item_scores in raw:
+                    best = max(item_scores, key=lambda x: x["score"])
+                    results.append(SentimentResult(
+                        label=_LABEL_MAP.get(best["label"], "neutral"),
+                        score=float(best["score"]),
+                    ))
+            else:
+                best = max(raw, key=lambda x: x["score"])
+                results.append(SentimentResult(
+                    label=_LABEL_MAP.get(best["label"], "neutral"),
+                    score=float(best["score"]),
+                ))
+        return results
+
+    # ── Local pipeline ───────────────────────────────────────────────────────
+
+    def _load_local(self):
         if self._pipeline is None:
-            logger.info("Loading sentiment model: %s", self._model_id)
+            from transformers import pipeline
+            logger.info("Loading local model: %s", self._model_id)
             self._pipeline = pipeline(
                 "sentiment-analysis",
                 model=self._model_id,
                 tokenizer=self._model_id,
                 truncation=True,
-                max_length=416,   # WangchanBERTa max is 416 tokens
+                max_length=416,
             )
-            logger.info("Model loaded.")
+            logger.info("Local model loaded.")
         return self._pipeline
 
+    # ── Public interface ─────────────────────────────────────────────────────
+
     def predict(self, text: str) -> SentimentResult:
-        pipe = self._load()
-        output = pipe(text)[0]
-        return SentimentResult(
-            label=_LABEL_MAP.get(output["label"], "neutral"),
-            score=float(output["score"]),
-        )
+        return self.predict_batch([text])[0]
 
     def predict_batch(self, texts: list[str]) -> list[SentimentResult]:
         if not texts:
             return []
-        pipe = self._load()
+        if self._use_api:
+            return self._api_predict(texts)
+        pipe = self._load_local()
         outputs = pipe(texts, batch_size=16)
         return [
             SentimentResult(
@@ -104,7 +129,6 @@ class SentimentAnalyzer:
         ]
 
 
-# Module-level singleton — one model loaded per process
 _analyzer: SentimentAnalyzer | None = None
 
 
