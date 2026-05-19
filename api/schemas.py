@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 
 class SearchRequest(BaseModel):
     keyword: str = Field(..., min_length=1, description="Thai keyword to search")
-    sources: list[Literal["sanook", "khaosod", "pantip"]] = Field(
-        default=["sanook", "khaosod", "pantip"],
+    sources: list[Literal["google_news", "sanook", "khaosod", "pantip"]] = Field(
+        default=["google_news", "pantip"],
         description="Which platforms to crawl",
     )
     max_items_per_source: int = Field(default=30, ge=1, le=100)
