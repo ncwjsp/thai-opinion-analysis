@@ -16,42 +16,42 @@
       font-family: 'Segoe UI', Tahoma, sans-serif;
       color: var(--text);
       min-height: 100vh;
-      background: linear-gradient(
-        180deg,
-        #f8fafc 0%,
-        #eef6fd 35%,
-        #e7f1fd 65%,
-        #e9eafe 100%
-      );
+      background: linear-gradient(180deg,#f8fafc 0%,#eef6fd 35%,#e7f1fd 65%,#e9eafe 100%);
       background-attachment: fixed;
     }
-
     header {
       background: linear-gradient(135deg, #000000, #111827, #1f2937);
       color: #ffffff;
-      padding: 2.5rem 2rem;
+      padding: 2.5rem 2rem 1.75rem;
       text-align: center;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      position: relative;
     }
+    header h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; }
+    header p { margin-top: 0.75rem; opacity: 0.85; font-size: 1rem; }
 
-    header h1 {
-      font-size: 2.2rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
+    /* Language toggle */
+    .lang-toggle {
+      position: absolute; top: 1.25rem; right: 1.25rem;
+      display: flex; align-items: center;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.2);
     }
-
-    header p {
-      margin-top: 0.75rem;
-      opacity: 0.85;
-      font-size: 1rem;
-      font-weight: 400;
+    .lang-btn {
+      padding: 0.4rem 0.85rem;
+      font-size: 0.8rem; font-weight: 700;
+      cursor: pointer; border: none;
+      background: transparent; color: rgba(255,255,255,0.6);
+      transition: all 0.2s; letter-spacing: 0.05em;
     }
+    .lang-btn.active { background: rgba(255,255,255,0.2); color: #ffffff; }
+    .lang-btn:hover:not(.active) { color: rgba(255,255,255,0.9); }
 
     .search-bar {
       display: flex; gap: .75rem; justify-content: center;
-      padding: 1.5rem 1rem;
-      flex-wrap: wrap;
+      padding: 1.5rem 1rem; flex-wrap: wrap;
     }
     .search-bar input {
       padding: .75rem 1.25rem; border: 2px solid var(--border);
@@ -59,124 +59,61 @@
       outline: none; transition: border-color .2s;
     }
     .search-bar input:focus { border-color: var(--accent); }
-    
     .search-bar button {
       padding: 0.85rem 2rem;
       background: linear-gradient(135deg, #000000, #1f2937);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+      color: white; border: none; border-radius: 12px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      transition: all 0.3s ease; box-shadow: 0 6px 18px rgba(0,0,0,0.2);
     }
-
-    .search-bar button:hover {
-      background: linear-gradient(135deg, #111827, #374151);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-    }
-
-    .search-bar button:active {
-      transform: translateY(0);
-    }
-
-    .search-bar button:disabled {
-      background: #9ca3af;
-      cursor: not-allowed;
-      box-shadow: none;
-      transform: none;
-    }
+    .search-bar button:hover { background: linear-gradient(135deg,#111827,#374151); transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+    .search-bar button:active { transform: translateY(0); }
+    .search-bar button:disabled { background: #9ca3af; cursor: not-allowed; box-shadow: none; transform: none; }
 
     .options {
       display: flex; gap: 1rem; justify-content: center;
       flex-wrap: wrap; padding: 0 1rem .75rem;
     }
     .options label { font-size: .875rem; color: var(--muted); cursor: pointer; }
-    .options input[ type=checkbox] { accent-color: #000000; cursor: pointer; }
+    .options input[type=checkbox] { accent-color: #000000; cursor: pointer; }
     .options select { padding: .35rem .6rem; border-radius: 6px; border: 1px solid var(--border); }
 
-    #status {
-      text-align: center; color: var(--muted); font-size: .9rem;
-      padding: .5rem; min-height: 1.5rem;
-    }
+    #status { text-align: center; color: var(--muted); font-size: .9rem; padding: .5rem; min-height: 1.5rem; }
 
-    /* Loading overlay */
     #loadingOverlay {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.45);
-      backdrop-filter: blur(3px);
-      z-index: 9999;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1.25rem;
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); backdrop-filter: blur(3px);
+      z-index: 9999; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1.25rem;
     }
     #loadingOverlay.active { display: flex; }
-    .spinner {
-      width: 56px; height: 56px;
-      border: 5px solid rgba(255,255,255,0.2);
-      border-top-color: #ffffff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
+    .spinner { width: 56px; height: 56px; border: 5px solid rgba(255,255,255,0.2); border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-text {
-      color: #ffffff;
-      font-size: 1.1rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
-    .loading-sub {
-      color: rgba(255,255,255,0.7);
-      font-size: 0.85rem;
-    }
+    .loading-text { color: #ffffff; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.02em; }
+    .loading-sub { color: rgba(255,255,255,0.7); font-size: 0.85rem; }
 
     main { max-width: 1100px; margin: 0 auto; padding: 1rem 1rem 3rem; }
-
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
     @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
 
-    .card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: 1.25rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,.06);
-    }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
     .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 
-    /* Sentiment badges */
-    .badge {
-      display: inline-block; padding: .2rem .6rem; border-radius: 9999px;
-      font-size: .75rem; font-weight: 700; text-transform: uppercase;
-    }
+    .badge { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 700; text-transform: uppercase; }
     .badge-positive { background: #dcfce7; color: #15803d; }
     .badge-negative { background: #fee2e2; color: #b91c1c; }
     .badge-neutral  { background: #f1f5f9; color: #475569; }
 
-    /* Stats row */
-    .stat-row {
-      display: flex; gap: 1rem; justify-content: space-around;
-      margin-bottom: 1rem; flex-wrap: wrap;
-    }
+    .stat-row { display: flex; gap: 1rem; justify-content: space-around; margin-bottom: 1rem; flex-wrap: wrap; }
     .stat-box { text-align: center; }
     .stat-box .num { font-size: 2rem; font-weight: 700; }
     .stat-box .lbl { font-size: .8rem; color: var(--muted); }
     .pos { color: var(--pos); } .neg { color: var(--neg); } .neu { color: var(--neu); }
 
-    /* Word cloud */
     #wordcloud { display: flex; flex-wrap: wrap; gap: .5rem; align-content: flex-start; min-height: 120px; }
-    .wc-word {
-      display: inline-block; padding: .3rem .75rem;
-      background: #eff6ff; color: #1d4ed8;
-      border-radius: 9999px; font-weight: 600;
-      cursor: default; transition: transform .15s;
-    }
+    .wc-word { display: inline-block; padding: .3rem .75rem; background: #eff6ff; color: #1d4ed8; border-radius: 9999px; font-weight: 600; cursor: default; transition: transform .15s; }
     .wc-word:hover { transform: scale(1.1); }
 
-    /* Table */
     #resultsSection { margin-top: 1.25rem; }
     table { width: 100%; border-collapse: collapse; font-size: .875rem; }
     th { background: #f1f5f9; text-align: left; padding: .6rem .8rem; color: var(--muted); font-size: .78rem; text-transform: uppercase; }
@@ -186,52 +123,52 @@
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
-    /* Platform pills */
     .plat { display:inline-block; padding:.15rem .55rem; border-radius:4px; font-size:.72rem; font-weight:600; }
     .plat-sanook  { background:#fef9c3; color:#854d0e; }
     .plat-khaosod { background:#fce7f3; color:#9d174d; }
     .plat-pantip  { background:#ede9fe; color:#5b21b6; }
 
-    /* Region bar */
     .region-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; font-size: .85rem; }
     .region-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 4px; height: 8px; }
     .region-bar { height: 8px; border-radius: 4px; background: var(--accent); }
 
     #placeholder { text-align:center; padding: 3rem 1rem; color: var(--muted); }
     #placeholder svg { width: 64px; opacity: .3; display:block; margin: 0 auto 1rem; }
-
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-<!-- Loading overlay -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">กำลังวิเคราะห์...</div>
-  <div class="loading-sub">กำลังรวบรวมข้อมูลและวิเคราะห์ความรู้สึก กรุณารอสักครู่</div>
+  <div class="loading-text" data-i18n="loading_title">กำลังวิเคราะห์...</div>
+  <div class="loading-sub" data-i18n="loading_sub">กำลังรวบรวมข้อมูลและวิเคราะห์ความรู้สึก กรุณารอสักครู่</div>
 </div>
 
 <header>
-  <h1>Thai Online Opinion Analysis</h1>
-  <p>Enter a Thai keyword to crawl news and community posts, then analyze sentiment</p>
+  <div class="lang-toggle">
+    <button class="lang-btn active" id="btnTH" onclick="setLang('th')">TH</button>
+    <button class="lang-btn" id="btnEN" onclick="setLang('en')">EN</button>
+  </div>
+  <h1 data-i18n="header_title">Thai Online Opinion Analysis</h1>
+  <p data-i18n="header_sub">ป้อนคำค้นหาภาษาไทยเพื่อดึงข่าวและโพสต์ชุมชน แล้ววิเคราะห์ความรู้สึก</p>
 </header>
 
 <div class="search-bar">
-  <input id="kwInput" type="text" placeholder="พิมพ์คำค้นหาภาษาไทย เช่น รัฐบาล" />
-  <button id="searchBtn" onclick="doSearch()">วิเคราะห์</button>
+  <input id="kwInput" type="text" data-i18n-placeholder="search_placeholder" placeholder="พิมพ์คำค้นหาภาษาไทย เช่น รัฐบาล" />
+  <button id="searchBtn" onclick="doSearch()" data-i18n="search_btn">วิเคราะห์</button>
 </div>
 
 <div class="options">
-  <label><input type="checkbox" id="chk-sanook" checked /> Thai News (Google News RSS)</label>
-  <label><input type="checkbox" id="chk-pantip" checked /> Pantip Community</label>
-  <label>Model:
+  <label><input type="checkbox" id="chk-sanook" checked /> <span data-i18n="src_news">Thai News (Google News RSS)</span></label>
+  <label><input type="checkbox" id="chk-pantip" checked /> <span data-i18n="src_pantip">Pantip Community</span></label>
+  <label><span data-i18n="opt_model">Model:</span>
     <select id="modelSel">
       <option value="xlm-roberta">XLM-RoBERTa</option>
       <option value="wangchanberta">WangchanBERTa</option>
     </select>
   </label>
-  <label>Max per source:
+  <label><span data-i18n="opt_max">สูงสุดต่อแหล่ง:</span>
     <select id="maxItems">
       <option value="20">20</option>
       <option value="30" selected>30</option>
@@ -247,60 +184,54 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
       <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
     </svg>
-    ป้อนคำค้นหาแล้วกด "วิเคราะห์" เพื่อเริ่มต้น
+    <span data-i18n="placeholder_text">ป้อนคำค้นหาแล้วกด "วิเคราะห์" เพื่อเริ่มต้น</span>
   </div>
 
   <div id="results" class="hidden">
-    <!-- Stats -->
     <div class="card" style="margin-bottom:1.25rem">
       <div class="stat-row">
-        <div class="stat-box"><div class="num" id="stTotal">—</div><div class="lbl">บทความทั้งหมด</div></div>
-        <div class="stat-box"><div class="num pos" id="stPos">—</div><div class="lbl">เชิงบวก</div></div>
-        <div class="stat-box"><div class="num neg" id="stNeg">—</div><div class="lbl">เชิงลบ</div></div>
-        <div class="stat-box"><div class="num neu" id="stNeu">—</div><div class="lbl">กลาง</div></div>
-        <div class="stat-box"><div class="num" id="stDedup" style="color:#a855f7">—</div><div class="lbl">หลังกรองซ้ำ</div></div>
+        <div class="stat-box"><div class="num" id="stTotal">—</div><div class="lbl" data-i18n="stat_total">บทความทั้งหมด</div></div>
+        <div class="stat-box"><div class="num pos" id="stPos">—</div><div class="lbl" data-i18n="stat_pos">เชิงบวก</div></div>
+        <div class="stat-box"><div class="num neg" id="stNeg">—</div><div class="lbl" data-i18n="stat_neg">เชิงลบ</div></div>
+        <div class="stat-box"><div class="num neu" id="stNeu">—</div><div class="lbl" data-i18n="stat_neu">กลาง</div></div>
+        <div class="stat-box"><div class="num" id="stDedup" style="color:#a855f7">—</div><div class="lbl" data-i18n="stat_dedup">หลังกรองซ้ำ</div></div>
       </div>
     </div>
 
     <div class="grid-2">
-      <!-- Sentiment pie -->
       <div class="card">
-        <h2>การกระจายความรู้สึก</h2>
+        <h2 data-i18n="chart_sentiment">การกระจายความรู้สึก</h2>
         <canvas id="pieChart" height="200"></canvas>
       </div>
-      <!-- Platform bar -->
       <div class="card">
-        <h2>จำนวนตามแหล่งข้อมูล</h2>
+        <h2 data-i18n="chart_platform">จำนวนตามแหล่งข้อมูล</h2>
         <canvas id="barChart" height="200"></canvas>
       </div>
     </div>
 
     <div class="grid-2" style="margin-top:1.25rem">
-      <!-- Word cloud -->
       <div class="card">
-        <h2>คำยอดนิยม (Word Cloud)</h2>
+        <h2 data-i18n="section_wordcloud">คำยอดนิยม (Word Cloud)</h2>
         <div id="wordcloud"></div>
       </div>
-      <!-- Region -->
       <div class="card">
-        <h2>การกระจายตามภูมิภาค</h2>
+        <h2 data-i18n="section_region">การกระจายตามภูมิภาค</h2>
         <div id="regionList"></div>
       </div>
     </div>
 
-    <!-- Table -->
     <div id="resultsSection" class="card" style="margin-top:1.25rem; overflow-x:auto">
-      <h2>ผลลัพธ์รายบทความ</h2>
+      <h2 data-i18n="section_table">ผลลัพธ์รายบทความ</h2>
       <table>
         <thead>
           <tr>
             <th>#</th>
-            <th>แหล่ง</th>
-            <th>ชื่อ / เนื้อหา</th>
-            <th>ความรู้สึก</th>
-            <th>ความมั่นใจ</th>
-            <th>ภูมิภาค</th>
-            <th>วันที่</th>
+            <th data-i18n="th_source">แหล่ง</th>
+            <th data-i18n="th_content">ชื่อ / เนื้อหา</th>
+            <th data-i18n="th_sentiment">ความรู้สึก</th>
+            <th data-i18n="th_confidence">ความมั่นใจ</th>
+            <th data-i18n="th_region">ภูมิภาค</th>
+            <th data-i18n="th_date">วันที่</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -310,18 +241,122 @@
 </main>
 
 <script>
-const API = '';   // same origin; change to 'http://localhost:8000' for dev
-
+const API = '';
 let pieChart = null, barChart = null;
+let currentLang = 'th';
+
+const i18n = {
+  th: {
+    header_title: 'Thai Online Opinion Analysis',
+    header_sub: 'ป้อนคำค้นหาภาษาไทยเพื่อดึงข่าวและโพสต์ชุมชน แล้ววิเคราะห์ความรู้สึก',
+    search_placeholder: 'พิมพ์คำค้นหาภาษาไทย เช่น รัฐบาล',
+    search_btn: 'วิเคราะห์',
+    src_news: 'Thai News (Google News RSS)',
+    src_pantip: 'Pantip Community',
+    opt_model: 'Model:',
+    opt_max: 'สูงสุดต่อแหล่ง:',
+    placeholder_text: 'ป้อนคำค้นหาแล้วกด "วิเคราะห์" เพื่อเริ่มต้น',
+    stat_total: 'บทความทั้งหมด',
+    stat_pos: 'เชิงบวก',
+    stat_neg: 'เชิงลบ',
+    stat_neu: 'กลาง',
+    stat_dedup: 'หลังกรองซ้ำ',
+    chart_sentiment: 'การกระจายความรู้สึก',
+    chart_platform: 'จำนวนตามแหล่งข้อมูล',
+    section_wordcloud: 'คำยอดนิยม (Word Cloud)',
+    section_region: 'การกระจายตามภูมิภาค',
+    section_table: 'ผลลัพธ์รายบทความ',
+    th_source: 'แหล่ง',
+    th_content: 'ชื่อ / เนื้อหา',
+    th_sentiment: 'ความรู้สึก',
+    th_confidence: 'ความมั่นใจ',
+    th_region: 'ภูมิภาค',
+    th_date: 'วันที่',
+    loading_title: 'กำลังวิเคราะห์...',
+    loading_sub: 'กำลังรวบรวมข้อมูลและวิเคราะห์ความรู้สึก กรุณารอสักครู่',
+    alert_keyword: 'กรุณาป้อนคำค้นหา',
+    alert_source: 'กรุณาเลือกแหล่งข้อมูลอย่างน้อยหนึ่งแหล่ง',
+    status_ok: (crawled, dedup) => `✅ พบ ${crawled} รายการ → หลังกรองซ้ำ ${dedup} รายการ`,
+    status_err: (msg) => `❌ ${msg}`,
+    pie_pos: 'เชิงบวก', pie_neg: 'เชิงลบ', pie_neu: 'กลาง',
+    bar_pos: 'เชิงบวก', bar_neg: 'เชิงลบ', bar_neu: 'กลาง',
+    badge_pos: 'บวก', badge_neg: 'ลบ', badge_neu: 'กลาง',
+    word_tooltip: (w, c) => `${w}: ${c} ครั้ง`,
+  },
+  en: {
+    header_title: 'Thai Online Opinion Analysis',
+    header_sub: 'Enter a Thai keyword to crawl news and community posts, then analyze sentiment',
+    search_placeholder: 'Type a Thai keyword, e.g. รัฐบาล',
+    search_btn: 'Analyze',
+    src_news: 'Thai News (Google News RSS)',
+    src_pantip: 'Pantip Community',
+    opt_model: 'Model:',
+    opt_max: 'Max per source:',
+    placeholder_text: 'Enter a keyword and click "Analyze" to get started',
+    stat_total: 'Total Articles',
+    stat_pos: 'Positive',
+    stat_neg: 'Negative',
+    stat_neu: 'Neutral',
+    stat_dedup: 'After Dedup',
+    chart_sentiment: 'Sentiment Distribution',
+    chart_platform: 'Articles by Source',
+    section_wordcloud: 'Top Keywords (Word Cloud)',
+    section_region: 'Regional Distribution',
+    section_table: 'Article Results',
+    th_source: 'Source',
+    th_content: 'Title / Content',
+    th_sentiment: 'Sentiment',
+    th_confidence: 'Confidence',
+    th_region: 'Region',
+    th_date: 'Date',
+    loading_title: 'Analyzing...',
+    loading_sub: 'Fetching data and running sentiment analysis, please wait',
+    alert_keyword: 'Please enter a keyword',
+    alert_source: 'Please select at least one source',
+    status_ok: (crawled, dedup) => `✅ Found ${crawled} items → ${dedup} after deduplication`,
+    status_err: (msg) => `❌ ${msg}`,
+    pie_pos: 'Positive', pie_neg: 'Negative', pie_neu: 'Neutral',
+    bar_pos: 'Positive', bar_neg: 'Negative', bar_neu: 'Neutral',
+    badge_pos: 'Positive', badge_neg: 'Negative', badge_neu: 'Neutral',
+    word_tooltip: (w, c) => `${w}: ${c} times`,
+  }
+};
+
+function t(key) { return i18n[currentLang][key] || key; }
+
+function setLang(lang) {
+  currentLang = lang;
+  document.documentElement.lang = lang;
+  document.getElementById('btnTH').classList.toggle('active', lang === 'th');
+  document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (i18n[lang][key] && typeof i18n[lang][key] === 'string') el.textContent = i18n[lang][key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (i18n[lang][key]) el.placeholder = i18n[lang][key];
+  });
+  if (pieChart) {
+    pieChart.data.labels = [t('pie_pos'), t('pie_neg'), t('pie_neu')];
+    pieChart.update();
+  }
+  if (barChart) {
+    barChart.data.datasets[0].label = t('bar_pos');
+    barChart.data.datasets[1].label = t('bar_neg');
+    barChart.data.datasets[2].label = t('bar_neu');
+    barChart.update();
+  }
+}
 
 async function doSearch() {
   const kw = document.getElementById('kwInput').value.trim();
-  if (!kw) { alert('กรุณาป้อนคำค้นหา'); return; }
+  if (!kw) { alert(t('alert_keyword')); return; }
 
   const sources = [];
   if (document.getElementById('chk-sanook')?.checked) sources.push('google_news');
   if (document.getElementById('chk-pantip')?.checked) sources.push('pantip');
-  if (!sources.length) { alert('กรุณาเลือกแหล่งข้อมูลอย่างน้อยหนึ่งแหล่ง'); return; }
+  if (!sources.length) { alert(t('alert_source')); return; }
 
   const btn = document.getElementById('searchBtn');
   const overlay = document.getElementById('loadingOverlay');
@@ -344,13 +379,13 @@ async function doSearch() {
     });
     if (!resp.ok) {
       const err = await resp.json();
-      throw new Error(err.detail || 'เกิดข้อผิดพลาด');
+      throw new Error(err.detail || 'Error occurred');
     }
     const data = await resp.json();
     renderResults(data);
-    setStatus(`✅ พบ ${data.total_crawled} รายการ → หลังกรองซ้ำ ${data.total_after_dedup} รายการ`);
+    setStatus(t('status_ok')(data.total_crawled, data.total_after_dedup));
   } catch (e) {
-    setStatus('❌ ' + e.message);
+    setStatus(t('status_err')(e.message));
     document.getElementById('placeholder').classList.remove('hidden');
   } finally {
     btn.disabled = false;
@@ -365,13 +400,11 @@ function renderResults(data) {
   document.getElementById('stNeg').textContent   = s.negative;
   document.getElementById('stNeu').textContent   = s.neutral;
   document.getElementById('stDedup').textContent = data.total_after_dedup;
-
   renderPie(s);
   renderBar(data.platform_breakdown);
   renderWordCloud(data.top_keywords);
   renderRegions(data.region_distribution);
   renderTable(data.articles);
-
   document.getElementById('results').classList.remove('hidden');
 }
 
@@ -381,10 +414,9 @@ function renderPie(s) {
   pieChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['เชิงบวก', 'เชิงลบ', 'กลาง'],
+      labels: [t('pie_pos'), t('pie_neg'), t('pie_neu')],
       datasets: [{ data: [s.positive, s.negative, s.neutral],
-        backgroundColor: ['#22c55e','#ef4444','#94a3b8'],
-        borderWidth: 2 }]
+        backgroundColor: ['#22c55e','#ef4444','#94a3b8'], borderWidth: 2 }]
     },
     options: { plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
   });
@@ -393,15 +425,14 @@ function renderPie(s) {
 function renderBar(platforms) {
   if (barChart) barChart.destroy();
   const ctx = document.getElementById('barChart').getContext('2d');
-  const labels = platforms.map(p => p.platform);
   barChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels,
+      labels: platforms.map(p => p.platform),
       datasets: [
-        { label: 'เชิงบวก', data: platforms.map(p=>p.positive),  backgroundColor: '#22c55e' },
-        { label: 'เชิงลบ',  data: platforms.map(p=>p.negative),  backgroundColor: '#ef4444' },
-        { label: 'กลาง',    data: platforms.map(p=>p.neutral),   backgroundColor: '#94a3b8' },
+        { label: t('bar_pos'), data: platforms.map(p=>p.positive), backgroundColor: '#22c55e' },
+        { label: t('bar_neg'), data: platforms.map(p=>p.negative), backgroundColor: '#ef4444' },
+        { label: t('bar_neu'), data: platforms.map(p=>p.neutral),  backgroundColor: '#94a3b8' },
       ]
     },
     options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
@@ -419,7 +450,7 @@ function renderWordCloud(words) {
     span.className = 'wc-word';
     span.textContent = w.word;
     span.style.fontSize = sz + 'rem';
-    span.title = `${w.word}: ${w.count} ครั้ง`;
+    span.title = t('word_tooltip')(w.word, w.count);
     el.appendChild(span);
   });
 }
@@ -443,33 +474,30 @@ function renderTable(articles) {
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = '';
   articles.forEach((a, i) => {
-    const date = a.published_at ? new Date(a.published_at).toLocaleDateString('th-TH') : '—';
-    const badge = `<span class="badge badge-${a.sentiment_label}">${labelTh(a.sentiment_label)}</span>`;
+    const date = a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB') : '—';
+    const badgeMap = { positive: t('badge_pos'), negative: t('badge_neg'), neutral: t('badge_neu') };
+    const sentLabel = badgeMap[a.sentiment_label] || a.sentiment_label || '—';
+    const badge = `<span class="badge badge-${a.sentiment_label}">${sentLabel}</span>`;
     const conf  = a.confidence_score != null ? (a.confidence_score * 100).toFixed(1) + '%' : '—';
     const link  = a.url ? `<a href="${a.url}" target="_blank">${esc(a.title || a.text_content.slice(0,80))}</a>`
                         : esc(a.title || a.text_content.slice(0,80));
-    tbody.innerHTML += `
-      <tr>
-        <td>${i+1}</td>
-        <td><span class="plat plat-${a.source_platform}">${a.source_platform}</span></td>
-        <td class="text-cell">${link}</td>
-        <td>${badge}</td>
-        <td>${conf}</td>
-        <td>${a.region || '—'}</td>
-        <td>${date}</td>
-      </tr>`;
+    tbody.innerHTML += `<tr>
+      <td>${i+1}</td>
+      <td><span class="plat plat-${a.source_platform}">${a.source_platform}</span></td>
+      <td class="text-cell">${link}</td>
+      <td>${badge}</td>
+      <td>${conf}</td>
+      <td>${a.region || '—'}</td>
+      <td>${date}</td>
+    </tr>`;
   });
 }
 
-function labelTh(lbl) {
-  return { positive: 'บวก', negative: 'ลบ', neutral: 'กลาง' }[lbl] || lbl || '—';
-}
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 function setStatus(msg) { document.getElementById('status').textContent = msg; }
 
-// Allow Enter key to trigger search
 document.getElementById('kwInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
