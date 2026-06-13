@@ -6,21 +6,59 @@
   <title>Thai Opinion Analysis</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <style>
+    /* ============================================================
+       CSS CUSTOM PROPERTIES
+    ============================================================ */
     :root {
-      --pos: #22c55e; --neg: #ef4444; --neu: #94a3b8;
-      --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0;
-      --text: #1e293b; --muted: #64748b; --accent: #3b82f6;
+      --pos: #22c55e;
+      --neg: #ef4444;
+      --neu: #94a3b8;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #3b82f6;
+      --header-from: #000000;
+      --header-to: #1f2937;
+      --body-bg-from: #f8fafc;
+      --body-bg-to: #e9eafe;
+      --shadow: rgba(0,0,0,0.06);
+      --overlay-bg: rgba(0,0,0,0.45);
     }
+
+    /* Dark mode overrides */
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --header-from: #000000;
+      --header-to: #0f172a;
+      --body-bg-from: #0f172a;
+      --body-bg-to: #1a1040;
+      --shadow: rgba(0,0,0,0.3);
+      --overlay-bg: rgba(0,0,0,0.65);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       font-family: 'Segoe UI', Tahoma, sans-serif;
       color: var(--text);
       min-height: 100vh;
-      background: linear-gradient(180deg,#f8fafc 0%,#eef6fd 35%,#e7f1fd 65%,#e9eafe 100%);
+      background: linear-gradient(180deg, var(--body-bg-from) 0%, var(--body-bg-to) 100%);
       background-attachment: fixed;
+      transition: background 0.3s, color 0.3s;
     }
+
+    /* ============================================================
+       HEADER
+    ============================================================ */
     header {
-      background: linear-gradient(135deg, #000000, #111827, #1f2937);
+      background: linear-gradient(135deg, var(--header-from), #111827, var(--header-to));
       color: #ffffff;
       padding: 2.5rem 2rem 1.75rem;
       text-align: center;
@@ -28,147 +66,618 @@
       border-bottom: 1px solid rgba(255,255,255,0.08);
       position: relative;
     }
-    header h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; }
-    header p { margin-top: 0.75rem; opacity: 0.85; font-size: 1rem; }
+    header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    header p {
+      margin-top: 0.75rem;
+      opacity: 0.85;
+      font-size: 1rem;
+    }
+
+    /* Header controls cluster (top-right) */
+    .header-controls {
+      position: absolute;
+      top: 1.25rem;
+      right: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
 
     /* Language toggle */
     .lang-toggle {
-      position: absolute; top: 1.25rem; right: 1.25rem;
-      display: flex; align-items: center;
+      display: flex;
+      align-items: center;
       background: rgba(255,255,255,0.1);
-      border-radius: 8px; overflow: hidden;
+      border-radius: 8px;
+      overflow: hidden;
       border: 1px solid rgba(255,255,255,0.2);
     }
     .lang-btn {
       padding: 0.4rem 0.85rem;
-      font-size: 0.8rem; font-weight: 700;
-      cursor: pointer; border: none;
-      background: transparent; color: rgba(255,255,255,0.6);
-      transition: all 0.2s; letter-spacing: 0.05em;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.6);
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
     }
     .lang-btn.active { background: rgba(255,255,255,0.2); color: #ffffff; }
     .lang-btn:hover:not(.active) { color: rgba(255,255,255,0.9); }
 
+    /* Dark mode toggle button */
+    .dark-toggle {
+      padding: 0.4rem 0.7rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.8);
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .dark-toggle:hover { background: rgba(255,255,255,0.2); color: #ffffff; }
+
+    /* ============================================================
+       SEARCH BAR
+    ============================================================ */
     .search-bar {
-      display: flex; gap: .75rem; justify-content: center;
-      padding: 1.5rem 1rem; flex-wrap: wrap;
+      display: flex;
+      gap: .75rem;
+      justify-content: center;
+      padding: 1.5rem 1rem;
+      flex-wrap: wrap;
     }
     .search-bar input {
-      padding: .75rem 1.25rem; border: 2px solid var(--border);
-      border-radius: 8px; font-size: 1.1rem; width: 340px;
-      outline: none; transition: border-color .2s;
+      padding: .75rem 1.25rem;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 1.1rem;
+      width: 340px;
+      outline: none;
+      transition: border-color .2s, background .3s;
+      background: var(--card);
+      color: var(--text);
     }
     .search-bar input:focus { border-color: var(--accent); }
     .search-bar button {
       padding: 0.85rem 2rem;
       background: linear-gradient(135deg, #000000, #1f2937);
-      color: white; border: none; border-radius: 12px;
-      font-size: 1rem; font-weight: 700; cursor: pointer;
-      transition: all 0.3s ease; box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.2);
     }
-    .search-bar button:hover { background: linear-gradient(135deg,#111827,#374151); transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+    .search-bar button:hover {
+      background: linear-gradient(135deg,#111827,#374151);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
     .search-bar button:active { transform: translateY(0); }
-    .search-bar button:disabled { background: #9ca3af; cursor: not-allowed; box-shadow: none; transform: none; }
-
-    .options {
-      display: flex; gap: 1rem; justify-content: center;
-      flex-wrap: wrap; padding: 0 1rem .75rem;
+    .search-bar button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
     }
-    .options label { font-size: .875rem; color: var(--muted); cursor: pointer; }
-    .options input[type=checkbox] { accent-color: #000000; cursor: pointer; }
-    .options select { padding: .35rem .6rem; border-radius: 6px; border: 1px solid var(--border); }
 
-    #status { text-align: center; color: var(--muted); font-size: .9rem; padding: .5rem; min-height: 1.5rem; }
+    /* ============================================================
+       OPTIONS BAR
+    ============================================================ */
+    .options {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 0 1rem .75rem;
+    }
+    .options label {
+      font-size: .875rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .options input[type=checkbox] { accent-color: #000000; cursor: pointer; }
+    .options select {
+      padding: .35rem .6rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* ============================================================
+       SEARCH HISTORY
+    ============================================================ */
+    .history-bar {
+      display: flex;
+      gap: .5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 0 1rem .75rem;
+      min-height: 2rem;
+    }
+    .history-label {
+      font-size: .78rem;
+      color: var(--muted);
+      align-self: center;
+      white-space: nowrap;
+    }
+    .history-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: .25rem .65rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      font-size: .78rem;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      color: var(--text);
+    }
+    .history-chip:hover {
+      border-color: var(--accent);
+      background: #eff6ff;
+    }
+    [data-theme="dark"] .history-chip:hover { background: #1e3a5f; }
+    .history-chip .chip-del {
+      font-size: .65rem;
+      opacity: 0.5;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+    .history-chip .chip-del:hover { opacity: 1; color: var(--neg); }
+    .history-clear {
+      font-size: .75rem;
+      color: var(--neg);
+      cursor: pointer;
+      align-self: center;
+      background: none;
+      border: none;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .history-clear:hover { background: #fee2e2; }
+
+    /* ============================================================
+       STATUS & LOADING
+    ============================================================ */
+    #status {
+      text-align: center;
+      color: var(--muted);
+      font-size: .9rem;
+      padding: .5rem;
+      min-height: 1.5rem;
+    }
 
     #loadingOverlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.45); backdrop-filter: blur(3px);
-      z-index: 9999; flex-direction: column;
-      align-items: center; justify-content: center; gap: 1.25rem;
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--overlay-bg);
+      backdrop-filter: blur(3px);
+      z-index: 9999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
     }
     #loadingOverlay.active { display: flex; }
-    .spinner { width: 56px; height: 56px; border: 5px solid rgba(255,255,255,0.2); border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .spinner {
+      width: 56px;
+      height: 56px;
+      border: 5px solid rgba(255,255,255,0.2);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-text { color: #ffffff; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.02em; }
+    .loading-text {
+      color: #ffffff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
     .loading-sub { color: rgba(255,255,255,0.7); font-size: 0.85rem; }
 
+    /* ============================================================
+       LAYOUT
+    ============================================================ */
     main { max-width: 1100px; margin: 0 auto; padding: 1rem 1rem 3rem; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
     @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
 
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 4px var(--shadow);
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
 
-    .badge { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 700; text-transform: uppercase; }
+    /* ============================================================
+       BADGES & STATS
+    ============================================================ */
+    .badge {
+      display: inline-block;
+      padding: .2rem .6rem;
+      border-radius: 9999px;
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
     .badge-positive { background: #dcfce7; color: #15803d; }
     .badge-negative { background: #fee2e2; color: #b91c1c; }
     .badge-neutral  { background: #f1f5f9; color: #475569; }
+    [data-theme="dark"] .badge-positive { background: #14532d; color: #86efac; }
+    [data-theme="dark"] .badge-negative { background: #7f1d1d; color: #fca5a5; }
+    [data-theme="dark"] .badge-neutral  { background: #334155; color: #cbd5e1; }
 
-    .stat-row { display: flex; gap: 1rem; justify-content: space-around; margin-bottom: 1rem; flex-wrap: wrap; }
+    .stat-row {
+      display: flex;
+      gap: 1rem;
+      justify-content: space-around;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
     .stat-box { text-align: center; }
     .stat-box .num { font-size: 2rem; font-weight: 700; }
     .stat-box .lbl { font-size: .8rem; color: var(--muted); }
-    .pos { color: var(--pos); } .neg { color: var(--neg); } .neu { color: var(--neu); }
+    .pos { color: var(--pos); }
+    .neg { color: var(--neg); }
+    .neu { color: var(--neu); }
 
-    #wordcloud { display: flex; flex-wrap: wrap; gap: .5rem; align-content: flex-start; min-height: 120px; }
-    .wc-word { display: inline-block; padding: .3rem .75rem; background: #eff6ff; color: #1d4ed8; border-radius: 9999px; font-weight: 600; cursor: default; transition: transform .15s; }
+    /* ============================================================
+       WORD CLOUD
+    ============================================================ */
+    #wordcloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-content: flex-start;
+      min-height: 120px;
+    }
+    .wc-word {
+      display: inline-block;
+      padding: .3rem .75rem;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 9999px;
+      font-weight: 600;
+      cursor: default;
+      transition: transform .15s, background .3s;
+    }
     .wc-word:hover { transform: scale(1.1); }
+    [data-theme="dark"] .wc-word { background: #1e3a5f; color: #93c5fd; }
 
+    /* ============================================================
+       REGION BARS
+    ============================================================ */
+    #regionList { max-height: 240px; overflow-y: auto; }
+    .region-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: .4rem;
+      font-size: .85rem;
+    }
+    .region-bar-wrap {
+      flex: 1;
+      background: #f1f5f9;
+      border-radius: 4px;
+      height: 8px;
+    }
+    [data-theme="dark"] .region-bar-wrap { background: #334155; }
+    .region-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--accent);
+      transition: width 0.4s ease;
+    }
+
+    /* ============================================================
+       TIMELINE CHART CARD
+    ============================================================ */
+    #timelineCard { margin-top: 1.25rem; }
+
+    /* ============================================================
+       FILTER TOOLBAR
+    ============================================================ */
+    .filter-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .85rem;
+      color: var(--muted);
+    }
+    .filter-group select,
+    .filter-group input[type="date"] {
+      padding: .3rem .55rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: .82rem;
+      background: var(--card);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .filter-group select:focus,
+    .filter-group input[type="date"]:focus { border-color: var(--accent); }
+
+    /* Confidence slider */
+    .conf-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .82rem;
+      color: var(--muted);
+    }
+    #confSlider {
+      width: 110px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    #confValue {
+      font-weight: 700;
+      color: var(--accent);
+      min-width: 3rem;
+    }
+
+    /* Export & Reset buttons in toolbar */
+    .toolbar-btn {
+      padding: .35rem .85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+    }
+    .toolbar-btn:hover { border-color: var(--accent); background: #eff6ff; }
+    [data-theme="dark"] .toolbar-btn:hover { background: #1e3a5f; }
+    .toolbar-btn.export-btn { border-color: #22c55e; color: #15803d; }
+    .toolbar-btn.export-btn:hover { background: #dcfce7; }
+    [data-theme="dark"] .toolbar-btn.export-btn:hover { background: #14532d; }
+    .toolbar-btn.reset-btn { border-color: var(--neg); color: #b91c1c; }
+    .toolbar-btn.reset-btn:hover { background: #fee2e2; }
+    [data-theme="dark"] .toolbar-btn.reset-btn:hover { background: #7f1d1d; }
+
+    /* ============================================================
+       TABLE
+    ============================================================ */
     #resultsSection { margin-top: 1.25rem; }
+    .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .875rem; }
-    th { background: #f1f5f9; text-align: left; padding: .6rem .8rem; color: var(--muted); font-size: .78rem; text-transform: uppercase; }
-    td { padding: .6rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th {
+      background: #f1f5f9;
+      text-align: left;
+      padding: .6rem .8rem;
+      color: var(--muted);
+      font-size: .78rem;
+      text-transform: uppercase;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    [data-theme="dark"] th { background: #1e293b; }
+    th:hover { background: #e2e8f0; }
+    [data-theme="dark"] th:hover { background: #334155; }
+    th .sort-icon { margin-left: 4px; opacity: 0.4; font-size: .7rem; }
+    th.sort-asc .sort-icon::after  { content: ' ▲'; opacity: 1; }
+    th.sort-desc .sort-icon::after { content: ' ▼'; opacity: 1; }
+    th:not(.sort-asc):not(.sort-desc) .sort-icon::after { content: ' ⇅'; }
+
+    td {
+      padding: .6rem .8rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
     tr:hover td { background: #f8fafc; }
+    [data-theme="dark"] tr:hover td { background: #1e293b; }
     td.text-cell { max-width: 420px; word-break: break-word; }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
     .plat { display:inline-block; padding:.15rem .55rem; border-radius:4px; font-size:.72rem; font-weight:600; }
-    .plat-sanook  { background:#fef9c3; color:#854d0e; }
-    .plat-khaosod { background:#fce7f3; color:#9d174d; }
-    .plat-pantip  { background:#ede9fe; color:#5b21b6; }
+    .plat-sanook       { background:#fef9c3; color:#854d0e; }
+    .plat-khaosod      { background:#fce7f3; color:#9d174d; }
+    .plat-pantip       { background:#ede9fe; color:#5b21b6; }
+    .plat-google_news  { background:#dbeafe; color:#1e40af; }
 
-    .region-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; font-size: .85rem; }
-    .region-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 4px; height: 8px; }
-    .region-bar { height: 8px; border-radius: 4px; background: var(--accent); }
+    /* Highlight keyword in text */
+    .highlight { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1px; }
+    [data-theme="dark"] .highlight { background: #854d0e; color: #fef9c3; }
 
-    #placeholder { text-align:center; padding: 3rem 1rem; color: var(--muted); }
-    #placeholder svg { width: 64px; opacity: .3; display:block; margin: 0 auto 1rem; }
+    /* ============================================================
+       PAGINATION
+    ============================================================ */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: .4rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .page-info {
+      font-size: .82rem;
+      color: var(--muted);
+      margin: 0 .5rem;
+    }
+    .page-btn {
+      padding: .35rem .7rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: .82rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 2rem;
+      text-align: center;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--accent); background: #eff6ff; }
+    [data-theme="dark"] .page-btn:hover:not(:disabled) { background: #1e3a5f; }
+    .page-btn.active {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-size-sel {
+      padding: .3rem .5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: .8rem;
+      background: var(--card);
+      color: var(--text);
+    }
+
+    /* ============================================================
+       EMPTY / PLACEHOLDER
+    ============================================================ */
+    #placeholder {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+    #placeholder svg {
+      width: 64px;
+      opacity: .3;
+      display: block;
+      margin: 0 auto 1rem;
+    }
+
+    /* Table no-results row */
+    .no-results-row td {
+      text-align: center;
+      color: var(--muted);
+      padding: 2rem;
+      font-style: italic;
+    }
+
+    /* ============================================================
+       TOAST NOTIFICATION
+    ============================================================ */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: .75rem 1.25rem;
+      border-radius: 10px;
+      background: #1e293b;
+      color: #f8fafc;
+      font-size: .875rem;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      z-index: 10000;
+      opacity: 0;
+      transform: translateY(1rem);
+      transition: opacity .3s, transform .3s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ============================================================
+       MISC HELPERS
+    ============================================================ */
     .hidden { display: none !important; }
+    .spacer { flex: 1; }
+    .text-right { text-align: right; }
+    .mt-1 { margin-top: .5rem; }
   </style>
 </head>
 <body>
 
+<!-- Loading Overlay -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
   <div class="loading-text" data-i18n="loading_title">กำลังวิเคราะห์...</div>
   <div class="loading-sub" data-i18n="loading_sub">กำลังรวบรวมข้อมูลและวิเคราะห์ความรู้สึก กรุณารอสักครู่</div>
 </div>
 
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Header -->
 <header>
-  <div class="lang-toggle">
-    <button class="lang-btn active" id="btnTH" onclick="setLang('th')">TH</button>
-    <button class="lang-btn" id="btnEN" onclick="setLang('en')">EN</button>
+  <div class="header-controls">
+    <button class="dark-toggle" id="darkToggle" onclick="toggleDark()" title="Toggle dark mode">🌙</button>
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="btnTH" onclick="setLang('th')">TH</button>
+      <button class="lang-btn" id="btnEN" onclick="setLang('en')">EN</button>
+    </div>
   </div>
   <h1 data-i18n="header_title">Thai Online Opinion Analysis</h1>
   <p data-i18n="header_sub">ป้อนคำค้นหาภาษาไทยเพื่อดึงข่าวและโพสต์ชุมชน แล้ววิเคราะห์ความรู้สึก</p>
 </header>
 
+<!-- Search Bar -->
 <div class="search-bar">
-  <input id="kwInput" type="text" data-i18n-placeholder="search_placeholder" placeholder="พิมพ์คำค้นหาภาษาไทย เช่น รัฐบาล" />
+  <input id="kwInput" type="text"
+         data-i18n-placeholder="search_placeholder"
+         placeholder="พิมพ์คำค้นหาภาษาไทย เช่น รัฐบาล" />
   <button id="searchBtn" onclick="doSearch()" data-i18n="search_btn">วิเคราะห์</button>
 </div>
 
+<!-- Options -->
 <div class="options">
-  <label><input type="checkbox" id="chk-sanook" checked /> <span data-i18n="src_news">Thai News (Google News RSS)</span></label>
-  <label><input type="checkbox" id="chk-pantip" checked /> <span data-i18n="src_pantip">Pantip Community</span></label>
-  <label><span data-i18n="opt_model">Model:</span>
+  <label>
+    <input type="checkbox" id="chk-sanook" checked />
+    <span data-i18n="src_news">Thai News (Google News RSS)</span>
+  </label>
+  <label>
+    <input type="checkbox" id="chk-pantip" checked />
+    <span data-i18n="src_pantip">Pantip Community</span>
+  </label>
+  <label>
+    <span data-i18n="opt_model">Model:</span>
     <select id="modelSel">
       <option value="xlm-roberta">XLM-RoBERTa</option>
       <option value="wangchanberta">WangchanBERTa</option>
     </select>
   </label>
-  <label><span data-i18n="opt_max">สูงสุดต่อแหล่ง:</span>
+  <label>
+    <span data-i18n="opt_max">สูงสุดต่อแหล่ง:</span>
     <select id="maxItems">
       <option value="20">20</option>
       <option value="30" selected>30</option>
@@ -177,9 +686,15 @@
   </label>
 </div>
 
+<!-- Search History -->
+<div class="history-bar" id="historyBar">
+  <!-- Populated by JS -->
+</div>
+
 <div id="status"></div>
 
 <main>
+  <!-- Placeholder -->
   <div id="placeholder">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
       <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -187,17 +702,40 @@
     <span data-i18n="placeholder_text">ป้อนคำค้นหาแล้วกด "วิเคราะห์" เพื่อเริ่มต้น</span>
   </div>
 
+  <!-- Results -->
   <div id="results" class="hidden">
+
+    <!-- Summary Stats -->
     <div class="card" style="margin-bottom:1.25rem">
       <div class="stat-row">
-        <div class="stat-box"><div class="num" id="stTotal">—</div><div class="lbl" data-i18n="stat_total">บทความทั้งหมด</div></div>
-        <div class="stat-box"><div class="num pos" id="stPos">—</div><div class="lbl" data-i18n="stat_pos">เชิงบวก</div></div>
-        <div class="stat-box"><div class="num neg" id="stNeg">—</div><div class="lbl" data-i18n="stat_neg">เชิงลบ</div></div>
-        <div class="stat-box"><div class="num neu" id="stNeu">—</div><div class="lbl" data-i18n="stat_neu">กลาง</div></div>
-        <div class="stat-box"><div class="num" id="stDedup" style="color:#a855f7">—</div><div class="lbl" data-i18n="stat_dedup">หลังกรองซ้ำ</div></div>
+        <div class="stat-box">
+          <div class="num" id="stTotal">—</div>
+          <div class="lbl" data-i18n="stat_total">บทความทั้งหมด</div>
+        </div>
+        <div class="stat-box">
+          <div class="num pos" id="stPos">—</div>
+          <div class="lbl" data-i18n="stat_pos">เชิงบวก</div>
+        </div>
+        <div class="stat-box">
+          <div class="num neg" id="stNeg">—</div>
+          <div class="lbl" data-i18n="stat_neg">เชิงลบ</div>
+        </div>
+        <div class="stat-box">
+          <div class="num neu" id="stNeu">—</div>
+          <div class="lbl" data-i18n="stat_neu">กลาง</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="stDedup" style="color:#a855f7">—</div>
+          <div class="lbl" data-i18n="stat_dedup">หลังกรองซ้ำ</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="stFiltered" style="color:#f59e0b">—</div>
+          <div class="lbl" data-i18n="stat_filtered">หลังกรองปัจจุบัน</div>
+        </div>
       </div>
     </div>
 
+    <!-- Charts Row 1 -->
     <div class="grid-2">
       <div class="card">
         <h2 data-i18n="chart_sentiment">การกระจายความรู้สึก</h2>
@@ -209,6 +747,7 @@
       </div>
     </div>
 
+    <!-- Charts Row 2 -->
     <div class="grid-2" style="margin-top:1.25rem">
       <div class="card">
         <h2 data-i18n="section_wordcloud">คำยอดนิยม (Word Cloud)</h2>
@@ -220,31 +759,154 @@
       </div>
     </div>
 
-    <div id="resultsSection" class="card" style="margin-top:1.25rem; overflow-x:auto">
-      <h2 data-i18n="section_table">ผลลัพธ์รายบทความ</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th data-i18n="th_source">แหล่ง</th>
-            <th data-i18n="th_content">ชื่อ / เนื้อหา</th>
-            <th data-i18n="th_sentiment">ความรู้สึก</th>
-            <th data-i18n="th_confidence">ความมั่นใจ</th>
-            <th data-i18n="th_region">ภูมิภาค</th>
-            <th data-i18n="th_date">วันที่</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
+    <!-- Timeline Chart -->
+    <div class="card" id="timelineCard" style="margin-top:1.25rem">
+      <h2 data-i18n="chart_timeline">แนวโน้มความรู้สึกตามวัน (Timeline)</h2>
+      <canvas id="timelineChart" height="140"></canvas>
     </div>
-  </div>
+
+    <!-- Results Table with Filter Toolbar -->
+    <div id="resultsSection" class="card" style="margin-top:1.25rem">
+      <h2 data-i18n="section_table">ผลลัพธ์รายบทความ</h2>
+
+      <!-- Filter Toolbar -->
+      <div class="filter-toolbar">
+
+        <!-- Sentiment filter -->
+        <div class="filter-group">
+          <span data-i18n="filter_sentiment">ความรู้สึก:</span>
+          <select id="filterSentiment" onchange="applyFilters()">
+            <option value="all" data-i18n="filter_all">ทั้งหมด</option>
+            <option value="positive" data-i18n="badge_pos">บวก</option>
+            <option value="negative" data-i18n="badge_neg">ลบ</option>
+            <option value="neutral" data-i18n="badge_neu">กลาง</option>
+          </select>
+        </div>
+
+        <!-- Platform filter -->
+        <div class="filter-group">
+          <span data-i18n="filter_platform">แหล่ง:</span>
+          <select id="filterPlatform" onchange="applyFilters()">
+            <option value="all" data-i18n="filter_all">ทั้งหมด</option>
+          </select>
+        </div>
+
+        <!-- Date from -->
+        <div class="filter-group">
+          <span data-i18n="filter_from">จาก:</span>
+          <input type="date" id="filterDateFrom" onchange="applyFilters()" />
+        </div>
+
+        <!-- Date to -->
+        <div class="filter-group">
+          <span data-i18n="filter_to">ถึง:</span>
+          <input type="date" id="filterDateTo" onchange="applyFilters()" />
+        </div>
+
+        <!-- Confidence slider -->
+        <div class="conf-slider-wrap">
+          <span data-i18n="filter_conf">ความมั่นใจ ≥</span>
+          <input type="range" id="confSlider" min="0" max="100" value="0" step="5"
+                 oninput="updateConfLabel(); applyFilters()" />
+          <span id="confValue">0%</span>
+        </div>
+
+        <div class="spacer"></div>
+
+        <!-- Sort order (date) -->
+        <div class="filter-group">
+          <span data-i18n="filter_sort">เรียง:</span>
+          <select id="filterSort" onchange="applyFilters()">
+            <option value="date_desc" data-i18n="sort_newest">ใหม่ → เก่า</option>
+            <option value="date_asc" data-i18n="sort_oldest">เก่า → ใหม่</option>
+            <option value="conf_desc" data-i18n="sort_conf_desc">ความมั่นใจ ↓</option>
+            <option value="conf_asc" data-i18n="sort_conf_asc">ความมั่นใจ ↑</option>
+          </select>
+        </div>
+
+        <!-- Export CSV -->
+        <button class="toolbar-btn export-btn" onclick="exportCSV()" title="Export CSV">
+          📥 <span data-i18n="btn_export">Export CSV</span>
+        </button>
+
+        <!-- Reset filters -->
+        <button class="toolbar-btn reset-btn" onclick="resetFilters()" title="Reset filters">
+          🔄 <span data-i18n="btn_reset">รีเซ็ต</span>
+        </button>
+
+      </div><!-- /.filter-toolbar -->
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th data-i18n="th_source" onclick="sortBy('source')">
+                แหล่ง<span class="sort-icon"></span>
+              </th>
+              <th data-i18n="th_content">ชื่อ / เนื้อหา</th>
+              <th data-i18n="th_sentiment" onclick="sortBy('sentiment')">
+                ความรู้สึก<span class="sort-icon"></span>
+              </th>
+              <th data-i18n="th_confidence" onclick="sortBy('confidence')">
+                ความมั่นใจ<span class="sort-icon"></span>
+              </th>
+              <th data-i18n="th_region">ภูมิภาค</th>
+              <th data-i18n="th_date" onclick="sortBy('date')">
+                วันที่<span class="sort-icon"></span>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination" id="pagination">
+        <button class="page-btn" id="btnFirst"    onclick="goToPage(1)" data-i18n-title="page_first">«</button>
+        <button class="page-btn" id="btnPrev"     onclick="goToPage(currentPage - 1)" data-i18n-title="page_prev">‹</button>
+        <span class="page-info" id="pageInfo"></span>
+        <span id="pageNumbers"></span>
+        <button class="page-btn" id="btnNext"     onclick="goToPage(currentPage + 1)" data-i18n-title="page_next">›</button>
+        <button class="page-btn" id="btnLast"     onclick="goToPage(totalPages)" data-i18n-title="page_last">»</button>
+        <select class="page-size-sel" id="pageSizeSel" onchange="changePageSize()" title="Rows per page">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+
+    </div><!-- /#resultsSection -->
+  </div><!-- /#results -->
 </main>
 
 <script>
+/* ================================================================
+   CONSTANTS & STATE
+================================================================ */
 const API = '';
-let pieChart = null, barChart = null;
+let pieChart = null, barChart = null, timelineChart = null;
 let currentLang = 'th';
+let isDark = false;
 
+// Data state
+let allArticles = [];          // All articles from API
+let filteredArticles = [];     // After filters applied
+let currentPage = 1;
+let pageSize = 20;
+let totalPages = 1;
+let sortColumn = 'date';
+let sortDirection = 'desc';    // 'asc' | 'desc'
+let currentKeyword = '';
+let lastRawData = null;        // Full API response
+
+const HISTORY_KEY = 'toa_search_history';
+const MAX_HISTORY = 8;
+
+/* ================================================================
+   i18n STRINGS
+================================================================ */
 const i18n = {
   th: {
     header_title: 'Thai Online Opinion Analysis',
@@ -261,8 +923,10 @@ const i18n = {
     stat_neg: 'เชิงลบ',
     stat_neu: 'กลาง',
     stat_dedup: 'หลังกรองซ้ำ',
+    stat_filtered: 'หลังกรองปัจจุบัน',
     chart_sentiment: 'การกระจายความรู้สึก',
     chart_platform: 'จำนวนตามแหล่งข้อมูล',
+    chart_timeline: 'แนวโน้มความรู้สึกตามวัน (Timeline)',
     section_wordcloud: 'คำยอดนิยม (Word Cloud)',
     section_region: 'การกระจายตามภูมิภาค',
     section_table: 'ผลลัพธ์รายบทความ',
@@ -282,6 +946,28 @@ const i18n = {
     bar_pos: 'เชิงบวก', bar_neg: 'เชิงลบ', bar_neu: 'กลาง',
     badge_pos: 'บวก', badge_neg: 'ลบ', badge_neu: 'กลาง',
     word_tooltip: (w, c) => `${w}: ${c} ครั้ง`,
+    filter_sentiment: 'ความรู้สึก:',
+    filter_platform: 'แหล่ง:',
+    filter_from: 'จาก:',
+    filter_to: 'ถึง:',
+    filter_conf: 'ความมั่นใจ ≥',
+    filter_sort: 'เรียง:',
+    filter_all: 'ทั้งหมด',
+    sort_newest: 'ใหม่ → เก่า',
+    sort_oldest: 'เก่า → ใหม่',
+    sort_conf_desc: 'ความมั่นใจ ↓',
+    sort_conf_asc: 'ความมั่นใจ ↑',
+    btn_export: 'Export CSV',
+    btn_reset: 'รีเซ็ต',
+    history_label: 'ล่าสุด:',
+    history_clear: 'ล้างทั้งหมด',
+    no_results: 'ไม่พบผลลัพธ์ที่ตรงกับตัวกรอง',
+    page_of: (cur, tot) => `หน้า ${cur} จาก ${tot}`,
+    rows_showing: (from, to, total) => `แสดง ${from}–${to} จาก ${total} รายการ`,
+    toast_exported: (n) => `✅ ส่งออก ${n} รายการแล้ว`,
+    toast_reset: 'รีเซ็ตตัวกรองแล้ว',
+    toast_copied: 'คัดลอกแล้ว',
+    tl_pos: 'บวก', tl_neg: 'ลบ', tl_neu: 'กลาง',
   },
   en: {
     header_title: 'Thai Online Opinion Analysis',
@@ -298,8 +984,10 @@ const i18n = {
     stat_neg: 'Negative',
     stat_neu: 'Neutral',
     stat_dedup: 'After Dedup',
+    stat_filtered: 'After Filters',
     chart_sentiment: 'Sentiment Distribution',
     chart_platform: 'Articles by Source',
+    chart_timeline: 'Sentiment Trend Over Time',
     section_wordcloud: 'Top Keywords (Word Cloud)',
     section_region: 'Regional Distribution',
     section_table: 'Article Results',
@@ -319,24 +1007,74 @@ const i18n = {
     bar_pos: 'Positive', bar_neg: 'Negative', bar_neu: 'Neutral',
     badge_pos: 'Positive', badge_neg: 'Negative', badge_neu: 'Neutral',
     word_tooltip: (w, c) => `${w}: ${c} times`,
+    filter_sentiment: 'Sentiment:',
+    filter_platform: 'Source:',
+    filter_from: 'From:',
+    filter_to: 'To:',
+    filter_conf: 'Confidence ≥',
+    filter_sort: 'Sort:',
+    filter_all: 'All',
+    sort_newest: 'Newest → Oldest',
+    sort_oldest: 'Oldest → Newest',
+    sort_conf_desc: 'Confidence ↓',
+    sort_conf_asc: 'Confidence ↑',
+    btn_export: 'Export CSV',
+    btn_reset: 'Reset',
+    history_label: 'Recent:',
+    history_clear: 'Clear all',
+    no_results: 'No results match the current filters',
+    page_of: (cur, tot) => `Page ${cur} of ${tot}`,
+    rows_showing: (from, to, total) => `Showing ${from}–${to} of ${total} items`,
+    toast_exported: (n) => `✅ Exported ${n} items`,
+    toast_reset: 'Filters reset',
+    toast_copied: 'Copied',
+    tl_pos: 'Positive', tl_neg: 'Negative', tl_neu: 'Neutral',
   }
 };
 
-function t(key) { return i18n[currentLang][key] || key; }
+function t(key, ...args) {
+  const val = i18n[currentLang][key];
+  if (typeof val === 'function') return val(...args);
+  return val || key;
+}
 
+/* ================================================================
+   LANGUAGE SWITCHING
+================================================================ */
 function setLang(lang) {
   currentLang = lang;
   document.documentElement.lang = lang;
   document.getElementById('btnTH').classList.toggle('active', lang === 'th');
   document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    if (i18n[lang][key] && typeof i18n[lang][key] === 'string') el.textContent = i18n[lang][key];
+    if (i18n[lang][key] && typeof i18n[lang][key] === 'string') {
+      el.textContent = i18n[lang][key];
+    }
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     const key = el.getAttribute('data-i18n-placeholder');
     if (i18n[lang][key]) el.placeholder = i18n[lang][key];
   });
+
+  // Update filter selects
+  const filterSent = document.getElementById('filterSentiment');
+  if (filterSent) {
+    filterSent.options[0].text = t('filter_all');
+    filterSent.options[1].text = t('badge_pos');
+    filterSent.options[2].text = t('badge_neg');
+    filterSent.options[3].text = t('badge_neu');
+  }
+  const filterSort = document.getElementById('filterSort');
+  if (filterSort) {
+    filterSort.options[0].text = t('sort_newest');
+    filterSort.options[1].text = t('sort_oldest');
+    filterSort.options[2].text = t('sort_conf_desc');
+    filterSort.options[3].text = t('sort_conf_asc');
+  }
+
+  // Update charts if rendered
   if (pieChart) {
     pieChart.data.labels = [t('pie_pos'), t('pie_neg'), t('pie_neu')];
     pieChart.update();
@@ -347,8 +1085,98 @@ function setLang(lang) {
     barChart.data.datasets[2].label = t('bar_neu');
     barChart.update();
   }
+  if (timelineChart) {
+    timelineChart.data.datasets[0].label = t('tl_pos');
+    timelineChart.data.datasets[1].label = t('tl_neg');
+    timelineChart.data.datasets[2].label = t('tl_neu');
+    timelineChart.update();
+  }
+
+  // Re-render history
+  renderHistory();
+  // Re-render pagination info
+  if (filteredArticles.length > 0) renderPageInfo();
 }
 
+/* ================================================================
+   DARK MODE
+================================================================ */
+function toggleDark() {
+  isDark = !isDark;
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : '');
+  document.getElementById('darkToggle').textContent = isDark ? '☀️' : '🌙';
+  localStorage.setItem('toa_dark', isDark ? '1' : '0');
+}
+
+function initDark() {
+  const saved = localStorage.getItem('toa_dark');
+  if (saved === '1') toggleDark();
+}
+
+/* ================================================================
+   SEARCH HISTORY
+================================================================ */
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveHistory(kw) {
+  if (!kw) return;
+  let hist = loadHistory().filter(h => h !== kw);
+  hist.unshift(kw);
+  if (hist.length > MAX_HISTORY) hist = hist.slice(0, MAX_HISTORY);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+  renderHistory();
+}
+
+function removeHistoryItem(kw) {
+  let hist = loadHistory().filter(h => h !== kw);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+  renderHistory();
+}
+
+function clearHistory() {
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+}
+
+function renderHistory() {
+  const bar = document.getElementById('historyBar');
+  const hist = loadHistory();
+  if (!hist.length) { bar.innerHTML = ''; return; }
+
+  let html = `<span class="history-label">${t('history_label')}</span>`;
+  hist.forEach(kw => {
+    html += `<span class="history-chip" onclick="fillSearch('${esc(kw)}')">
+      ${esc(kw)}
+      <span class="chip-del" onclick="event.stopPropagation(); removeHistoryItem('${esc(kw)}')" title="Remove">✕</span>
+    </span>`;
+  });
+  html += `<button class="history-clear" onclick="clearHistory()">${t('history_clear')}</button>`;
+  bar.innerHTML = html;
+}
+
+function fillSearch(kw) {
+  document.getElementById('kwInput').value = kw;
+  doSearch();
+}
+
+/* ================================================================
+   TOAST
+================================================================ */
+let toastTimer = null;
+function showToast(msg, duration = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+/* ================================================================
+   SEARCH & API CALL
+================================================================ */
 async function doSearch() {
   const kw = document.getElementById('kwInput').value.trim();
   if (!kw) { alert(t('alert_keyword')); return; }
@@ -357,6 +1185,9 @@ async function doSearch() {
   if (document.getElementById('chk-sanook')?.checked) sources.push('google_news');
   if (document.getElementById('chk-pantip')?.checked) sources.push('pantip');
   if (!sources.length) { alert(t('alert_source')); return; }
+
+  currentKeyword = kw;
+  saveHistory(kw);
 
   const btn = document.getElementById('searchBtn');
   const overlay = document.getElementById('loadingOverlay');
@@ -382,10 +1213,11 @@ async function doSearch() {
       throw new Error(err.detail || 'Error occurred');
     }
     const data = await resp.json();
+    lastRawData = data;
     renderResults(data);
-    setStatus(t('status_ok')(data.total_crawled, data.total_after_dedup));
+    setStatus(t('status_ok', data.total_crawled, data.total_after_dedup));
   } catch (e) {
-    setStatus(t('status_err')(e.message));
+    setStatus(t('status_err', e.message));
     document.getElementById('placeholder').classList.remove('hidden');
   } finally {
     btn.disabled = false;
@@ -393,21 +1225,39 @@ async function doSearch() {
   }
 }
 
+/* ================================================================
+   RENDER RESULTS  (called once per API response)
+================================================================ */
 function renderResults(data) {
   const s = data.sentiment_summary;
+
+  // Stats
   document.getElementById('stTotal').textContent = s.total;
   document.getElementById('stPos').textContent   = s.positive;
   document.getElementById('stNeg').textContent   = s.negative;
   document.getElementById('stNeu').textContent   = s.neutral;
   document.getElementById('stDedup').textContent = data.total_after_dedup;
+
+  // Charts
   renderPie(s);
   renderBar(data.platform_breakdown);
+  renderTimeline(data.articles);
   renderWordCloud(data.top_keywords);
   renderRegions(data.region_distribution);
-  renderTable(data.articles);
+
+  // Store articles and build platform filter options
+  allArticles = data.articles || [];
+  buildPlatformFilter(allArticles);
+
+  // Reset filters & pagination, then render table
+  resetFilters(true);
+
   document.getElementById('results').classList.remove('hidden');
 }
 
+/* ================================================================
+   CHART: PIE
+================================================================ */
 function renderPie(s) {
   if (pieChart) pieChart.destroy();
   const ctx = document.getElementById('pieChart').getContext('2d');
@@ -415,13 +1265,22 @@ function renderPie(s) {
     type: 'doughnut',
     data: {
       labels: [t('pie_pos'), t('pie_neg'), t('pie_neu')],
-      datasets: [{ data: [s.positive, s.negative, s.neutral],
-        backgroundColor: ['#22c55e','#ef4444','#94a3b8'], borderWidth: 2 }]
+      datasets: [{
+        data: [s.positive, s.negative, s.neutral],
+        backgroundColor: ['#22c55e','#ef4444','#94a3b8'],
+        borderWidth: 2
+      }]
     },
-    options: { plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
+    options: {
+      plugins: { legend: { position: 'bottom' } },
+      cutout: '60%'
+    }
   });
 }
 
+/* ================================================================
+   CHART: BAR (platform)
+================================================================ */
 function renderBar(platforms) {
   if (barChart) barChart.destroy();
   const ctx = document.getElementById('barChart').getContext('2d');
@@ -430,19 +1289,97 @@ function renderBar(platforms) {
     data: {
       labels: platforms.map(p => p.platform),
       datasets: [
-        { label: t('bar_pos'), data: platforms.map(p=>p.positive), backgroundColor: '#22c55e' },
-        { label: t('bar_neg'), data: platforms.map(p=>p.negative), backgroundColor: '#ef4444' },
-        { label: t('bar_neu'), data: platforms.map(p=>p.neutral),  backgroundColor: '#94a3b8' },
+        { label: t('bar_pos'), data: platforms.map(p => p.positive),  backgroundColor: '#22c55e' },
+        { label: t('bar_neg'), data: platforms.map(p => p.negative),  backgroundColor: '#ef4444' },
+        { label: t('bar_neu'), data: platforms.map(p => p.neutral),   backgroundColor: '#94a3b8' },
       ]
     },
-    options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
-               plugins: { legend: { position: 'bottom' } } }
+    options: {
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true }
+      },
+      plugins: { legend: { position: 'bottom' } }
+    }
   });
 }
 
+/* ================================================================
+   CHART: TIMELINE (sentiment by day)
+================================================================ */
+function renderTimeline(articles) {
+  if (timelineChart) timelineChart.destroy();
+
+  // Group by date
+  const dayMap = {};
+  articles.forEach(a => {
+    if (!a.published_at) return;
+    const day = a.published_at.slice(0, 10); // YYYY-MM-DD
+    if (!dayMap[day]) dayMap[day] = { positive: 0, negative: 0, neutral: 0 };
+    const lbl = a.sentiment_label || 'neutral';
+    if (dayMap[day][lbl] !== undefined) dayMap[day][lbl]++;
+  });
+
+  const days = Object.keys(dayMap).sort();
+  if (days.length < 2) {
+    document.getElementById('timelineCard').classList.add('hidden');
+    return;
+  }
+  document.getElementById('timelineCard').classList.remove('hidden');
+
+  const ctx = document.getElementById('timelineChart').getContext('2d');
+  timelineChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [
+        {
+          label: t('tl_pos'),
+          data: days.map(d => dayMap[d].positive),
+          borderColor: '#22c55e',
+          backgroundColor: 'rgba(34,197,94,0.08)',
+          tension: 0.35,
+          fill: true,
+          pointRadius: 3,
+        },
+        {
+          label: t('tl_neg'),
+          data: days.map(d => dayMap[d].negative),
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239,68,68,0.08)',
+          tension: 0.35,
+          fill: true,
+          pointRadius: 3,
+        },
+        {
+          label: t('tl_neu'),
+          data: days.map(d => dayMap[d].neutral),
+          borderColor: '#94a3b8',
+          backgroundColor: 'rgba(148,163,184,0.08)',
+          tension: 0.35,
+          fill: true,
+          pointRadius: 3,
+        },
+      ]
+    },
+    options: {
+      scales: {
+        x: { ticks: { maxTicksLimit: 10 } },
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      },
+      plugins: { legend: { position: 'bottom' } },
+      interaction: { mode: 'index', intersect: false },
+    }
+  });
+}
+
+/* ================================================================
+   WORD CLOUD
+================================================================ */
 function renderWordCloud(words) {
   const el = document.getElementById('wordcloud');
   el.innerHTML = '';
+  if (!words || !words.length) return;
   const max = words[0]?.count || 1;
   words.forEach(w => {
     const sz = 0.75 + (w.count / max) * 1.5;
@@ -450,57 +1387,376 @@ function renderWordCloud(words) {
     span.className = 'wc-word';
     span.textContent = w.word;
     span.style.fontSize = sz + 'rem';
-    span.title = t('word_tooltip')(w.word, w.count);
+    span.title = t('word_tooltip', w.word, w.count);
     el.appendChild(span);
   });
 }
 
+/* ================================================================
+   REGION LIST
+================================================================ */
 function renderRegions(regions) {
   const el = document.getElementById('regionList');
   el.innerHTML = '';
+  if (!regions || !regions.length) { el.textContent = '—'; return; }
   const max = regions[0]?.count || 1;
   regions.slice(0, 10).forEach(r => {
     const pct = Math.round((r.count / max) * 100);
     el.innerHTML += `
       <div class="region-row">
-        <span style="min-width:100px;font-size:.82rem">${r.region}</span>
-        <div class="region-bar-wrap"><div class="region-bar" style="width:${pct}%"></div></div>
+        <span style="min-width:100px;font-size:.82rem">${esc(r.region)}</span>
+        <div class="region-bar-wrap">
+          <div class="region-bar" style="width:${pct}%"></div>
+        </div>
         <span style="font-size:.8rem;color:var(--muted)">${r.count}</span>
       </div>`;
   });
 }
 
-function renderTable(articles) {
+/* ================================================================
+   PLATFORM FILTER – populate dropdown from actual data
+================================================================ */
+function buildPlatformFilter(articles) {
+  const platforms = [...new Set(articles.map(a => a.source_platform).filter(Boolean))];
+  const sel = document.getElementById('filterPlatform');
+  // Keep first option (All)
+  while (sel.options.length > 1) sel.remove(1);
+  platforms.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    sel.appendChild(opt);
+  });
+}
+
+/* ================================================================
+   FILTER & SORT LOGIC
+================================================================ */
+function applyFilters() {
+  const sentiment  = document.getElementById('filterSentiment').value;
+  const platform   = document.getElementById('filterPlatform').value;
+  const dateFrom   = document.getElementById('filterDateFrom').value;   // YYYY-MM-DD
+  const dateTo     = document.getElementById('filterDateTo').value;
+  const confMin    = parseInt(document.getElementById('confSlider').value) / 100;
+  const sortVal    = document.getElementById('filterSort').value;
+
+  // Filter
+  filteredArticles = allArticles.filter(a => {
+    if (sentiment !== 'all' && a.sentiment_label !== sentiment) return false;
+    if (platform  !== 'all' && a.source_platform !== platform) return false;
+    if (confMin > 0 && (a.confidence_score == null || a.confidence_score < confMin)) return false;
+    if (dateFrom) {
+      const d = a.published_at ? a.published_at.slice(0, 10) : null;
+      if (!d || d < dateFrom) return false;
+    }
+    if (dateTo) {
+      const d = a.published_at ? a.published_at.slice(0, 10) : null;
+      if (!d || d > dateTo) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  filteredArticles = sortArticles(filteredArticles, sortVal);
+
+  // Update filtered count
+  document.getElementById('stFiltered').textContent = filteredArticles.length;
+
+  // Reset to page 1 & render
+  currentPage = 1;
+  totalPages = Math.max(1, Math.ceil(filteredArticles.length / pageSize));
+  renderTablePage();
+  renderPagination();
+}
+
+function sortArticles(arr, sortVal) {
+  const copy = [...arr];
+  copy.sort((a, b) => {
+    switch (sortVal) {
+      case 'date_desc': {
+        const da = a.published_at || '';
+        const db = b.published_at || '';
+        return db.localeCompare(da);
+      }
+      case 'date_asc': {
+        const da = a.published_at || '';
+        const db = b.published_at || '';
+        return da.localeCompare(db);
+      }
+      case 'conf_desc':
+        return (b.confidence_score ?? 0) - (a.confidence_score ?? 0);
+      case 'conf_asc':
+        return (a.confidence_score ?? 0) - (b.confidence_score ?? 0);
+      default:
+        return 0;
+    }
+  });
+  return copy;
+}
+
+/* Column header sort (toggles asc/desc for the clicked column) */
+function sortBy(col) {
+  if (sortColumn === col) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn = col;
+    sortDirection = 'desc';
+  }
+
+  // Update sort icons in header
+  document.querySelectorAll('th[onclick]').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  const colMap = { source: 1, sentiment: 3, confidence: 4, date: 6 };
+  const idx = colMap[col];
+  if (idx !== undefined) {
+    const ths = document.querySelectorAll('#resultsSection table th');
+    const th = ths[idx];
+    if (th) th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+  }
+
+  // Map col to sortVal
+  const sortValMap = {
+    date: sortDirection === 'asc' ? 'date_asc' : 'date_desc',
+    confidence: sortDirection === 'asc' ? 'conf_asc' : 'conf_desc',
+    source: sortDirection === 'asc' ? 'date_asc' : 'date_desc',    // fallback
+    sentiment: sortDirection === 'asc' ? 'date_asc' : 'date_desc', // fallback
+  };
+  document.getElementById('filterSort').value = sortValMap[col] || 'date_desc';
+  applyFilters();
+}
+
+function updateConfLabel() {
+  const val = document.getElementById('confSlider').value;
+  document.getElementById('confValue').textContent = val + '%';
+}
+
+function resetFilters(silent = false) {
+  document.getElementById('filterSentiment').value = 'all';
+  document.getElementById('filterPlatform').value  = 'all';
+  document.getElementById('filterDateFrom').value  = '';
+  document.getElementById('filterDateTo').value    = '';
+  document.getElementById('confSlider').value      = 0;
+  document.getElementById('confValue').textContent = '0%';
+  document.getElementById('filterSort').value      = 'date_desc';
+  pageSize = parseInt(document.getElementById('pageSizeSel').value) || 20;
+
+  filteredArticles = [...allArticles];
+  const sv = document.getElementById('filterSort').value;
+  filteredArticles = sortArticles(filteredArticles, sv);
+  document.getElementById('stFiltered').textContent = filteredArticles.length;
+
+  currentPage = 1;
+  totalPages = Math.max(1, Math.ceil(filteredArticles.length / pageSize));
+  renderTablePage();
+  renderPagination();
+
+  if (!silent) showToast(t('toast_reset'));
+}
+
+/* ================================================================
+   PAGINATION
+================================================================ */
+function goToPage(n) {
+  n = Math.max(1, Math.min(n, totalPages));
+  if (n === currentPage) return;
+  currentPage = n;
+  renderTablePage();
+  renderPagination();
+}
+
+function changePageSize() {
+  pageSize = parseInt(document.getElementById('pageSizeSel').value);
+  currentPage = 1;
+  totalPages = Math.max(1, Math.ceil(filteredArticles.length / pageSize));
+  renderTablePage();
+  renderPagination();
+}
+
+function renderPagination() {
+  const pg = document.getElementById('pagination');
+  if (!filteredArticles.length) { pg.classList.add('hidden'); return; }
+  pg.classList.remove('hidden');
+
+  document.getElementById('btnFirst').disabled = currentPage === 1;
+  document.getElementById('btnPrev').disabled  = currentPage === 1;
+  document.getElementById('btnNext').disabled  = currentPage === totalPages;
+  document.getElementById('btnLast').disabled  = currentPage === totalPages;
+
+  renderPageInfo();
+  renderPageNumbers();
+}
+
+function renderPageInfo() {
+  const from  = (currentPage - 1) * pageSize + 1;
+  const to    = Math.min(currentPage * pageSize, filteredArticles.length);
+  const total = filteredArticles.length;
+  document.getElementById('pageInfo').textContent = t('rows_showing', from, to, total);
+}
+
+function renderPageNumbers() {
+  const container = document.getElementById('pageNumbers');
+  container.innerHTML = '';
+  const WINDOW = 2; // pages around current
+  const pages = [];
+
+  // Always include first and last
+  pages.push(1);
+  for (let p = currentPage - WINDOW; p <= currentPage + WINDOW; p++) {
+    if (p > 1 && p < totalPages) pages.push(p);
+  }
+  if (totalPages > 1) pages.push(totalPages);
+
+  // Deduplicate and sort
+  const unique = [...new Set(pages)].sort((a, b) => a - b);
+
+  unique.forEach((p, i) => {
+    // Ellipsis before if gap
+    if (i > 0 && p - unique[i - 1] > 1) {
+      const dots = document.createElement('span');
+      dots.className = 'page-info';
+      dots.textContent = '…';
+      container.appendChild(dots);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'page-btn' + (p === currentPage ? ' active' : '');
+    btn.textContent = p;
+    btn.onclick = () => goToPage(p);
+    container.appendChild(btn);
+  });
+}
+
+/* ================================================================
+   TABLE RENDERING
+================================================================ */
+function renderTablePage() {
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = '';
-  articles.forEach((a, i) => {
-    const date = a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB') : '—';
-    const badgeMap = { positive: t('badge_pos'), negative: t('badge_neg'), neutral: t('badge_neu') };
+
+  if (!filteredArticles.length) {
+    tbody.innerHTML = `<tr class="no-results-row"><td colspan="7">${t('no_results')}</td></tr>`;
+    return;
+  }
+
+  const start = (currentPage - 1) * pageSize;
+  const end   = Math.min(start + pageSize, filteredArticles.length);
+  const page  = filteredArticles.slice(start, end);
+
+  page.forEach((a, i) => {
+    const globalIndex = start + i + 1;
+    const date = a.published_at
+      ? new Date(a.published_at).toLocaleDateString('en-GB')
+      : '—';
+    const badgeMap = {
+      positive: t('badge_pos'),
+      negative: t('badge_neg'),
+      neutral:  t('badge_neu'),
+    };
     const sentLabel = badgeMap[a.sentiment_label] || a.sentiment_label || '—';
     const badge = `<span class="badge badge-${a.sentiment_label}">${sentLabel}</span>`;
-    const conf  = a.confidence_score != null ? (a.confidence_score * 100).toFixed(1) + '%' : '—';
-    const link  = a.url ? `<a href="${a.url}" target="_blank">${esc(a.title || a.text_content.slice(0,80))}</a>`
-                        : esc(a.title || a.text_content.slice(0,80));
+    const conf  = a.confidence_score != null
+      ? (a.confidence_score * 100).toFixed(1) + '%'
+      : '—';
+
+    const rawTitle = a.title || (a.text_content ? a.text_content.slice(0, 80) : '');
+    const displayTitle = highlightKeyword(esc(rawTitle), currentKeyword);
+
+    const link = a.url
+      ? `<a href="${a.url}" target="_blank" rel="noopener">${displayTitle}</a>`
+      : displayTitle;
+
+    const plat = esc(a.source_platform || '');
+
     tbody.innerHTML += `<tr>
-      <td>${i+1}</td>
-      <td><span class="plat plat-${a.source_platform}">${a.source_platform}</span></td>
+      <td>${globalIndex}</td>
+      <td><span class="plat plat-${plat}">${plat}</span></td>
       <td class="text-cell">${link}</td>
       <td>${badge}</td>
       <td>${conf}</td>
-      <td>${a.region || '—'}</td>
+      <td>${esc(a.region || '—')}</td>
       <td>${date}</td>
     </tr>`;
   });
 }
 
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/* ================================================================
+   KEYWORD HIGHLIGHT IN TEXT
+================================================================ */
+function highlightKeyword(html, kw) {
+  if (!kw) return html;
+  const safe = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return html.replace(new RegExp(safe, 'g'), `<mark class="highlight">${kw}</mark>`);
 }
-function setStatus(msg) { document.getElementById('status').textContent = msg; }
 
+/* ================================================================
+   EXPORT CSV
+================================================================ */
+function exportCSV() {
+  if (!filteredArticles.length) return;
+
+  const headers = ['#', 'Source', 'Title', 'URL', 'Sentiment', 'Confidence', 'Region', 'Published'];
+  const rows = filteredArticles.map((a, i) => [
+    i + 1,
+    csvCell(a.source_platform || ''),
+    csvCell(a.title || a.text_content?.slice(0, 120) || ''),
+    csvCell(a.url || ''),
+    csvCell(a.sentiment_label || ''),
+    a.confidence_score != null ? (a.confidence_score * 100).toFixed(1) + '%' : '',
+    csvCell(a.region || ''),
+    a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB') : '',
+  ]);
+
+  const csv = [headers, ...rows]
+    .map(r => r.join(','))
+    .join('\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `opinion_analysis_${currentKeyword}_${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast(t('toast_exported', filteredArticles.length));
+}
+
+function csvCell(val) {
+  const s = String(val).replace(/"/g, '""');
+  return /[,"\n]/.test(s) ? `"${s}"` : s;
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+}
+
+/* ================================================================
+   UTILITIES
+================================================================ */
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+/* ================================================================
+   KEYBOARD SHORTCUT
+================================================================ */
 document.getElementById('kwInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
+
+/* ================================================================
+   INIT
+================================================================ */
+initDark();
+renderHistory();
 </script>
 </body>
 </html>
