@@ -76,11 +76,12 @@ Open http://localhost:8000 in your browser.
 
 ## Data Sources
 
-| Source      | Type                 | Crawler          |
-| ----------- | -------------------- | ---------------- |
-| Sanook News | Thai news portal     | Scrapy spider    |
-| Khaosod     | Thai news portal     | Scrapy spider    |
-| Pantip      | Thai community forum | Selenium crawler |
+| Source      | Type                          | Crawler                |
+| ----------- | ----------------------------- | ---------------------- |
+| Google News | Thai news aggregator (RSS)    | RSS crawler            |
+| Pantip      | Thai community forum          | requests + BeautifulSoup |
+
+Google News RSS aggregates articles from Sanook, Khaosod, Matichon, Thairath, and other major Thai outlets.
 
 ## Sentiment Models
 
@@ -110,7 +111,7 @@ Open http://localhost:8000 in your browser.
 ```json
 {
   "keyword": "รัฐบาล",
-  "sources": ["sanook", "khaosod", "pantip"],
+  "sources": ["google_news", "pantip"],
   "max_items_per_source": 30,
   "model": "xlm-roberta"
 }
@@ -125,11 +126,8 @@ thai-opinion-analysis/
 ├── run.py                     — server entry point
 ├── crawler/
 │   ├── base.py                — shared RawItem dataclass
-│   ├── scrapy_runner.py       — async Scrapy integration
-│   ├── pantip_crawler.py      — Selenium crawler
-│   └── spiders/
-│       ├── sanook_spider.py
-│       └── khaosod_spider.py
+│   ├── google_news_crawler.py — Google News RSS crawler
+│   └── pantip_crawler.py      — requests + BeautifulSoup crawler
 ├── preprocessing/
 │   └── processor.py           — clean → tokenize → NER → dedup
 ├── sentiment/

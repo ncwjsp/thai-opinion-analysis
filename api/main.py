@@ -84,7 +84,7 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
     crawl_tasks = []
 
     # Google News RSS covers Thai news broadly (incl. Sanook, Khaosod, etc.)
-    if "google_news" in req.sources or "sanook" in req.sources or "khaosod" in req.sources:
+    if "google_news" in req.sources:
         crawl_tasks.append(
             loop.run_in_executor(None, crawl_google_news, keyword, max_items * 2)
         )
@@ -145,10 +145,7 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
     # so we match by prefix using LIKE
     source_filters = []
     for src in req.sources:
-        if src in ("google_news", "sanook", "khaosod"):
-            source_filters.append(Article.source_platform.like("google_news%"))
-        else:
-            source_filters.append(Article.source_platform.like(f"{src}%"))
+        source_filters.append(Article.source_platform.like(f"{src}%"))
 
     result = await db.execute(
         select(Article).where(

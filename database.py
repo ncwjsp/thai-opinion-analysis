@@ -18,7 +18,7 @@ class Article(Base):
     text_content   = Column(Text,    nullable=False)
     sentiment_label = Column(String(16), nullable=True)   # positive/negative/neutral
     confidence_score = Column(Float,  nullable=True)
-    source_platform  = Column(String(64), nullable=False)  # sanook / khaosod / pantip
+    source_platform  = Column(String(64), nullable=False)  # google rss / pantip
     published_at     = Column(DateTime, nullable=True)
     region           = Column(String(128), nullable=True)  # Thai province from NER
     keyword          = Column(String(256), nullable=False)
