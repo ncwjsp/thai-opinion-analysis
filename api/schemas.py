@@ -1,12 +1,40 @@
+"""
+Subsystem: API data contracts (Pydantic schemas).
+--------------------------------------------------------------------------
+Function:   Define and validate the request/response shapes exchanged between
+            the frontend and the FastAPI backend.
+Algorithms & techniques:
+  * Pydantic v2 models give automatic type coercion, validation, and OpenAPI
+    documentation generation for every endpoint.
+  * Field validators harden input at the boundary: the keyword is trimmed and
+    rejected if empty, and the source list is de-duplicated while preserving
+    order, so malformed requests fail fast with clear messages.
+Role in pipeline:
+  * Defines the single request type (SearchRequest) and the response types the
+    API returns, so the contract between frontend and backend lives in one
+    place and is validated automatically on every call.
+--------------------------------------------------------------------------
+"""
+
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ── Request ──────────────────────────────────────────────────────────────────
 
 class SearchRequest(BaseModel):
+    """Body of ``POST /api/search``.
+
+    Attributes:
+        keyword: Thai keyword to search for (whitespace is trimmed; must be
+            non-empty after trimming).
+        sources: Which platforms to crawl. Duplicates are removed while order
+            is preserved.
+        max_items_per_source: Per-source crawl cap (1–100).
+        model: Which sentiment model to run.
+    """
     keyword: str = Field(..., min_length=1, description="Thai keyword to search")
     sources: list[Literal["google_news", "pantip"]] = Field(
         default=["google_news", "pantip"],
@@ -18,10 +46,34 @@ class SearchRequest(BaseModel):
         description="Sentiment model to use",
     )
 
+    @field_validator("keyword")
+    @classmethod
+    def _strip_keyword(cls, v: str) -> str:
+        """Trim surrounding whitespace and reject whitespace-only keywords."""
+        v = v.strip()
+        if not v:
+            raise ValueError("keyword must not be empty or whitespace")
+        return v
+
+    @field_validator("sources")
+    @classmethod
+    def _dedupe_sources(cls, v: list[str]) -> list[str]:
+        """Remove duplicate sources while preserving order; reject empty."""
+        seen: set[str] = set()
+        deduped = [s for s in v if not (s in seen or seen.add(s))]
+        if not deduped:
+            raise ValueError("at least one source must be selected")
+        return deduped
+
 
 # ── Response ─────────────────────────────────────────────────────────────────
 
 class ArticleOut(BaseModel):
+    """A single analysed article as returned to the client.
+
+    Mirrors the persisted :class:`database.Article` (``from_attributes`` lets
+    it be built directly from an ORM row).
+    """
     id: int
     text_content: str
     sentiment_label: Optional[str]
@@ -37,6 +89,7 @@ class ArticleOut(BaseModel):
 
 
 class SentimentSummary(BaseModel):
+    """Counts of each sentiment label plus the overall total."""
     positive: int
     neutral: int
     negative: int
@@ -44,6 +97,7 @@ class SentimentSummary(BaseModel):
 
 
 class PlatformBreakdown(BaseModel):
+    """Per-platform article count with a sentiment breakdown."""
     platform: str
     count: int
     positive: int
@@ -52,6 +106,7 @@ class PlatformBreakdown(BaseModel):
 
 
 class RegionCount(BaseModel):
+    """Per-province article count with a sentiment breakdown."""
     region: str
     count: int
     positive: int
@@ -60,11 +115,24 @@ class RegionCount(BaseModel):
 
 
 class TopKeyword(BaseModel):
+    """A frequent token and how many times it appeared."""
     word: str
     count: int
 
 
 class SearchResponse(BaseModel):
+    """Aggregated result returned by the search and results endpoints.
+
+    Attributes:
+        keyword: The keyword these results are for.
+        total_crawled: Items fetched before deduplication.
+        total_after_dedup: Items remaining after deduplication.
+        sentiment_summary: Overall label counts.
+        platform_breakdown: Counts grouped by source platform.
+        region_distribution: Counts grouped by province (descending).
+        top_keywords: Most frequent tokens across the articles.
+        articles: The individual analysed articles.
+    """
     keyword: str
     total_crawled: int
     total_after_dedup: int

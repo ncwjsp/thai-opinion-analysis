@@ -2,6 +2,7 @@ node_modules/
 .next/
 out/
 dist/
+tests/
 .env
 .env.local
 .env.*.local

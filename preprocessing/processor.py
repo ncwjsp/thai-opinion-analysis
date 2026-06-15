@@ -1,5 +1,28 @@
 """
-Thai NLP preprocessing pipeline.
+Subsystem: Thai NLP preprocessing pipeline.
+--------------------------------------------------------------------------
+Function:   Turn noisy crawled text into clean, deduplicated, region-tagged
+            records ready for sentiment classification.
+Algorithms & techniques:
+  * Tokenization uses PyThaiNLP "newmm" — a dictionary-based maximum-matching
+    segmenter, required because Thai is written without spaces between words.
+  * Region extraction uses thainer NER for LOC entities, with a curated
+    77-province keyword set as a deterministic fallback when NER is absent.
+  * Deduplication is two-level: an MD5 hash set removes byte-identical text in
+    O(1), and a MinHash + Locality-Sensitive-Hashing index removes near
+    duplicates (syndicated/re-headlined stories) above an 85% similarity
+    threshold, using character 3-grams as the document fingerprint.
+Role in pipeline:
+  * Sits between data collection and sentiment analysis. It receives the raw
+    RawItem list produced by the crawlers and returns a smaller, cleaned list
+    in which every item has non-empty text, is unique within the run, and (when
+    detectable) carries a province in its region field.
+  * Why character n-grams for MinHash: word tokens are unreliable for Thai
+    because segmentation itself can differ between two otherwise-identical
+    strings; character 3-grams sidestep that and stay robust to small edits.
+  * Why a per-request Deduplicator: dedup state must not leak between searches,
+    so the caller constructs a fresh instance for every request.
+--------------------------------------------------------------------------
 
 Steps (as described in the thesis proposal §3.2):
   1. Text cleaning  — HTML, URLs, emoji, special chars, whitespace
@@ -10,6 +33,7 @@ Steps (as described in the thesis proposal §3.2):
 """
 
 import hashlib
+import logging
 import re
 from typing import Optional
 
@@ -25,21 +49,35 @@ except ImportError:
 
 from datasketch import MinHash, MinHashLSH
 
+from config import MINHASH_NGRAM, MINHASH_NUM_PERM, NER_ENGINE
 from crawler.base import RawItem
 from database import Article
+
+logger = logging.getLogger(__name__)
 
 # ── NER tagger (lazy-loaded once) ───────────────────────────────────────────
 _ner = None
 
 
 def _get_ner():
+    """Lazily construct and cache the PyThaiNLP NER tagger.
+
+    The tagger is heavy to build, so it is created once on first use and reused
+    thereafter. If PyThaiNLP's NER is unavailable or fails to initialise, this
+    returns ``None`` and callers fall back to the province keyword scan.
+
+    Returns:
+        The cached NER instance, or ``None`` when NER cannot be used.
+    """
     global _ner
     if _ner is None and _NER_AVAILABLE:
         # "thainer" is the correct engine name in PyThaiNLP 4/5
         try:
-            _ner = _NERClass(engine="thainer")
-        except Exception:
-            pass   # falls back to province keyword scan
+            _ner = _NERClass(engine=NER_ENGINE)
+            logger.info("Loaded PyThaiNLP NER engine %r", NER_ENGINE)
+        except Exception as exc:
+            # falls back to province keyword scan
+            logger.warning("NER engine unavailable (%s); using keyword fallback", exc)
     return _ner
 
 
@@ -81,7 +119,19 @@ _RE_SPACES   = re.compile(r"\s+")
 # ════════════════════════════════════════════════════════════════════════════
 
 def clean_text(text: str) -> str:
-    """Step 1 — remove HTML, URLs, emoji, symbols."""
+    """Step 1 — normalise raw text by stripping non-content noise.
+
+    Applies, in order: HTML tag removal, URL removal, emoji removal, removal of
+    characters outside the Thai/Latin/digit ranges, and whitespace collapsing.
+
+    Args:
+        text: Raw text from a crawled item.
+
+    Returns:
+        The cleaned, whitespace-normalised string (possibly empty).
+    """
+    if not text:
+        return ""
     text = _RE_HTML.sub(" ", text)
     text = _RE_URL.sub(" ", text)
     text = _RE_EMOJI.sub(" ", text)
@@ -91,8 +141,23 @@ def clean_text(text: str) -> str:
 
 
 def tokenize(text: str) -> list[str]:
-    """Step 2+3 — Thai tokenization (newmm) then stopword removal."""
-    tokens = word_tokenize(text, engine="newmm", keep_whitespace=False)
+    """Step 2+3 — Thai word tokenization (newmm) followed by stopword removal.
+
+    Uses PyThaiNLP's ``newmm`` dictionary-based maximum-matching tokenizer,
+    then drops empty tokens and Thai stopwords. Tokenization failures are
+    contained: an empty list is returned rather than propagating the error.
+
+    Args:
+        text: Cleaned text to tokenize.
+
+    Returns:
+        A list of content tokens with stopwords removed.
+    """
+    try:
+        tokens = word_tokenize(text, engine="newmm", keep_whitespace=False)
+    except Exception as exc:
+        logger.warning("Tokenization failed (%s); returning no tokens", exc)
+        return []
     return [t for t in tokens if t.strip() and t not in _STOPWORDS]
 
 
@@ -123,6 +188,18 @@ def extract_region(text: str) -> Optional[str]:
 
 
 def _match_province(word: str) -> Optional[str]:
+    """Match a candidate string against the known province set.
+
+    Matching is bidirectional substring: it succeeds if the candidate contains
+    a province name or a province name contains the candidate, which tolerates
+    minor boundary noise from the tokenizer or NER.
+
+    Args:
+        word: A candidate location string.
+
+    Returns:
+        The matched canonical province name, or ``None``.
+    """
     for prov in THAI_PROVINCES:
         if prov in word or word in prov:
             return prov
@@ -132,19 +209,40 @@ def _match_province(word: str) -> Optional[str]:
 # ── Deduplication state (per-request; reset between searches) ───────────────
 
 class Deduplicator:
-    """
-    Two-level deduplication:
-      1. Exact  — MD5 hash set
-      2. Near   — MinHash + LSH (85% similarity threshold)
+    """Two-level, stateful deduplicator for a single search run.
+
+    Crawled content frequently repeats: the same story is syndicated across
+    outlets (exact duplicates) or re-headlined with small edits (near
+    duplicates). This collapses both:
+
+      1. Exact  — an MD5 hash set rejects byte-identical text in O(1).
+      2. Near   — a MinHash + LSH index rejects text whose estimated Jaccard
+                  similarity exceeds ``threshold`` (default 0.85).
+
+    A new instance is created per request so its state never leaks between
+    searches.
+
+    Attributes:
+        threshold: MinHash similarity cutoff for the near-duplicate stage.
     """
 
-    def __init__(self, threshold: float = 0.85, num_perm: int = 128):
+    def __init__(self, threshold: float = 0.85, num_perm: int = MINHASH_NUM_PERM):
         self.threshold = threshold
+        self._num_perm = num_perm
         self._hash_set: set[str] = set()
         self._lsh = MinHashLSH(threshold=threshold, num_perm=num_perm)
         self._counter = 0
 
     def is_duplicate(self, text: str) -> bool:
+        """Test ``text`` against everything seen so far, recording it if new.
+
+        Args:
+            text: Cleaned text to check.
+
+        Returns:
+            ``True`` if ``text`` is an exact or near duplicate of an earlier
+            item; ``False`` otherwise (in which case it is now indexed).
+        """
         # Level 1 — exact
         md5 = hashlib.md5(text.encode("utf-8")).hexdigest()
         if md5 in self._hash_set:
@@ -152,7 +250,7 @@ class Deduplicator:
         self._hash_set.add(md5)
 
         # Level 2 — near-duplicate via MinHash
-        mh = _make_minhash(text)
+        mh = _make_minhash(text, self._num_perm)
         neighbors = self._lsh.query(mh)
         if neighbors:
             return True
@@ -163,21 +261,42 @@ class Deduplicator:
         return False
 
 
-def _make_minhash(text: str, num_perm: int = 128) -> MinHash:
+def _make_minhash(text: str, num_perm: int = MINHASH_NUM_PERM) -> MinHash:
+    """Build a MinHash signature for ``text`` from character n-grams.
+
+    Character n-grams (rather than word tokens) are used as the set
+    representation because they are robust to Thai's lack of word boundaries
+    and to minor edits between near-duplicate headlines.
+
+    Args:
+        text: Cleaned text to fingerprint.
+        num_perm: Number of MinHash permutations (must match the LSH index).
+
+    Returns:
+        A populated :class:`datasketch.MinHash`.
+    """
     mh = MinHash(num_perm=num_perm)
-    # Use character 3-grams as the set representation
-    for i in range(len(text) - 2):
-        mh.update(text[i:i+3].encode("utf-8"))
+    n = MINHASH_NGRAM
+    for i in range(len(text) - n + 1):
+        mh.update(text[i:i + n].encode("utf-8"))
     return mh
 
 
 # ── Full pipeline ─────────────────────────────────────────────────────────────
 
 def preprocess(raw_items: list[RawItem], dedup: Deduplicator) -> list[RawItem]:
-    """
-    Run the full preprocessing pipeline on a list of RawItems.
-    Mutates text_content in-place and fills region.
-    Returns only the items that passed deduplication.
+    """Run the full preprocessing pipeline over a batch of crawled items.
+
+    For each item: clean the text, drop it if empty or a (near-)duplicate,
+    otherwise write the cleaned text back in place and fill ``region`` via NER
+    when it is not already set. The input items are mutated in place.
+
+    Args:
+        raw_items: Items straight from the crawlers.
+        dedup: A per-request :class:`Deduplicator` holding dedup state.
+
+    Returns:
+        The subset of items that survived cleaning and deduplication.
     """
     processed = []
     for item in raw_items:
@@ -190,4 +309,8 @@ def preprocess(raw_items: list[RawItem], dedup: Deduplicator) -> list[RawItem]:
         if item.region is None:
             item.region = extract_region(cleaned)
         processed.append(item)
+    logger.info(
+        "Preprocess: %d in -> %d out (%d dropped)",
+        len(raw_items), len(processed), len(raw_items) - len(processed),
+    )
     return processed

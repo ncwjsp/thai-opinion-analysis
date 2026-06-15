@@ -1,5 +1,29 @@
 """
-FastAPI application — Thai Opinion Analysis System
+Subsystem: HTTP API & pipeline orchestration (FastAPI).
+--------------------------------------------------------------------------
+Function:   Expose the system over REST and orchestrate the end-to-end flow:
+            crawl -> preprocess/dedup -> sentiment -> persist -> aggregate.
+Algorithms & techniques:
+  * FastAPI with async routes; the synchronous, I/O- and CPU-bound stages
+    (crawlers, transformer inference) are dispatched to a thread-pool executor
+    so the event loop is never blocked.
+  * The two crawlers run concurrently via asyncio.gather(return_exceptions);
+    a failure in one source is logged and skipped, not fatal to the request.
+  * Results are aggregated from the database (not just the fresh crawl) so
+    repeated searches accumulate, and responses carry sentiment, platform, and
+    province breakdowns plus the most frequent keywords.
+Role in pipeline:
+  * This is the top-level entry point that wires every other subsystem together
+    in execution order: config -> database -> crawlers -> preprocessing ->
+    sentiment -> persistence -> aggregation -> JSON response.
+  * Failure isolation is layered: a single crawler error is skipped, a
+    sentiment failure returns HTTP 500, an empty crawl returns 503, and a
+    fully-deduplicated result returns 422 — each with an actionable message.
+  * The aggregation helpers (_summarise_sentiments, _platform_breakdown,
+    _region_distribution, _top_keywords) are pure functions over the stored
+    rows, which keeps the route logic readable and the helpers easy to reason
+    about in isolation.
+--------------------------------------------------------------------------
 
 Endpoints:
   POST /api/search        — crawl + analyze; returns full result set
@@ -23,7 +47,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 
-from config import settings
+from config import settings, TOP_KEYWORDS_N
 from database import Article, init_db, get_db
 from crawler.base import RawItem
 from crawler.google_news_crawler import crawl_google_news
@@ -54,6 +78,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
+    """Create database tables before the app begins serving requests."""
     await init_db()
     logger.info("Database initialised.")
 
@@ -65,6 +90,7 @@ if _FRONTEND.exists():
 
     @app.get("/", include_in_schema=False)
     async def serve_frontend():
+        """Serve the single-page frontend at the site root."""
         return FileResponse(str(_FRONTEND / "index.html"))
 
 
@@ -74,11 +100,31 @@ if _FRONTEND.exists():
 
 @app.post("/api/search", response_model=SearchResponse)
 async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
+    """Run the full pipeline for a keyword and return aggregated results.
+
+    Stages: crawl the selected sources concurrently (blocking crawlers run in
+    the thread-pool), preprocess and deduplicate the results, classify
+    sentiment in a batch, persist new rows, then read back and aggregate the
+    stored articles for the selected sources.
+
+    Args:
+        req: Validated search request.
+        db: Injected database session.
+
+    Returns:
+        A :class:`SearchResponse` with summary, breakdowns, and articles.
+
+    Raises:
+        HTTPException: ``503`` if nothing could be crawled, ``422`` if every
+            crawled item was removed by deduplication, or ``500`` if sentiment
+            analysis fails.
+    """
     keyword   = req.keyword.strip()
     analyzer  = get_analyzer(req.model)
     dedup     = Deduplicator(threshold=settings.NEAR_DUP_THRESHOLD)
     max_items = req.max_items_per_source
     loop      = asyncio.get_event_loop()
+    logger.info("Search %r sources=%s model=%s", keyword, req.sources, req.model)
 
     # ── 1. Crawl (run blocking crawlers in thread-pool) ───────────────────────
     crawl_tasks = []
@@ -94,9 +140,16 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
             loop.run_in_executor(None, crawl_pantip, keyword, max_items)
         )
 
-    raw_batches: list[list[RawItem]] = await asyncio.gather(*crawl_tasks)
-    raw_items: list[RawItem] = [item for batch in raw_batches for item in batch]
+    # gather(return_exceptions) so one failing crawler does not abort the other
+    raw_batches = await asyncio.gather(*crawl_tasks, return_exceptions=True)
+    raw_items: list[RawItem] = []
+    for batch in raw_batches:
+        if isinstance(batch, Exception):
+            logger.error("A crawler failed: %s", batch)
+            continue
+        raw_items.extend(batch)
     total_crawled = len(raw_items)
+    logger.info("Crawled %d raw items for %r", total_crawled, keyword)
 
     # ── 2. Preprocess + deduplicate ──────────────────────────────────────────
     clean_items = preprocess(raw_items, dedup)
@@ -114,8 +167,16 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
         )
 
     # ── 3. Sentiment analysis (batched) ──────────────────────────────────────
-    texts      = [item.text_content for item in clean_items]
-    sentiments = await loop.run_in_executor(None, analyzer.predict_batch, texts)
+    texts = [item.text_content for item in clean_items]
+    try:
+        sentiments = await loop.run_in_executor(None, analyzer.predict_batch, texts)
+    except Exception as exc:
+        logger.exception("Sentiment analysis failed for %r", keyword)
+        raise HTTPException(
+            status_code=500,
+            detail="Sentiment analysis failed. Please try again.",
+        ) from exc
+    logger.info("Classified %d items for %r", len(sentiments), keyword)
 
     # ── 4. Persist to DB ─────────────────────────────────────────────────────
     for item, sentiment in zip(clean_items, sentiments):
@@ -138,7 +199,16 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
             title            = item.title,
         ))
 
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        logger.exception("Failed to persist results for %r", keyword)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to save results. Please try again.",
+        ) from exc
+    logger.info("Persisted results for %r", keyword)
 
     # ── 5. Build aggregated response from DB (only selected sources) ─────────
     # source_platform is stored as e.g. "google_news(Ch7.com)" or "pantip"
@@ -171,6 +241,14 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
 
 @app.get("/api/history")
 async def history(db: AsyncSession = Depends(get_db)):
+    """List previously searched keywords with their stored article counts.
+
+    Args:
+        db: Injected database session.
+
+    Returns:
+        A list of ``{"keyword", "count"}`` dicts, most-searched first.
+    """
     result = await db.execute(
         select(Article.keyword, func.count(Article.id).label("count"))
         .group_by(Article.keyword)
@@ -183,6 +261,21 @@ async def history(db: AsyncSession = Depends(get_db)):
 
 @app.get("/api/results/{keyword}", response_model=SearchResponse)
 async def get_results(keyword: str, db: AsyncSession = Depends(get_db)):
+    """Return stored results for a previously searched keyword.
+
+    Unlike :func:`search`, this does not crawl — it only reads what is already
+    persisted.
+
+    Args:
+        keyword: The keyword to look up.
+        db: Injected database session.
+
+    Returns:
+        A :class:`SearchResponse` built from the stored articles.
+
+    Raises:
+        HTTPException: ``404`` if no stored results exist for ``keyword``.
+    """
     result = await db.execute(
         select(Article).where(Article.keyword == keyword)
     )
@@ -205,6 +298,7 @@ async def get_results(keyword: str, db: AsyncSession = Depends(get_db)):
 
 @app.get("/health")
 async def health():
+    """Liveness probe — returns ``ok`` and the current server time."""
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 
@@ -213,6 +307,7 @@ async def health():
 # ════════════════════════════════════════════════════════════════════════════
 
 def _summarise_sentiments(articles: list[Article]) -> SentimentSummary:
+    """Count positive/neutral/negative labels across ``articles``."""
     pos = sum(1 for a in articles if a.sentiment_label == "positive")
     neg = sum(1 for a in articles if a.sentiment_label == "negative")
     neu = sum(1 for a in articles if a.sentiment_label == "neutral")
@@ -220,6 +315,7 @@ def _summarise_sentiments(articles: list[Article]) -> SentimentSummary:
 
 
 def _platform_breakdown(articles: list[Article]) -> list[PlatformBreakdown]:
+    """Group ``articles`` by source platform with per-label counts."""
     platforms: dict[str, dict] = {}
     for a in articles:
         p = a.source_platform
@@ -231,6 +327,11 @@ def _platform_breakdown(articles: list[Article]) -> list[PlatformBreakdown]:
 
 
 def _region_distribution(articles: list[Article]) -> list[RegionCount]:
+    """Group ``articles`` by province (descending), with per-label counts.
+
+    Articles with no detected province are bucketed under ``"ไม่ระบุ"``
+    (unspecified).
+    """
     regions: dict[str, dict] = {}
     for a in articles:
         r = a.region or "ไม่ระบุ"
@@ -244,7 +345,19 @@ def _region_distribution(articles: list[Article]) -> list[RegionCount]:
     )
 
 
-def _top_keywords(articles: list[Article], top_n: int = 30) -> list[TopKeyword]:
+def _top_keywords(articles: list[Article], top_n: int = TOP_KEYWORDS_N) -> list[TopKeyword]:
+    """Return the ``top_n`` most frequent tokens across ``articles``.
+
+    Each article's text is re-tokenized (with stopwords removed) and the token
+    frequencies are pooled.
+
+    Args:
+        articles: Articles to scan.
+        top_n: How many of the most common tokens to return.
+
+    Returns:
+        The most frequent tokens, paired with their counts, most-common first.
+    """
     counter: Counter = Counter()
     for a in articles:
         counter.update(tokenize(a.text_content))
