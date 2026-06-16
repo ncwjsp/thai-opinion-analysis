@@ -21,6 +21,8 @@ from datetime import datetime
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator
 
+from validators import clean_keyword, dedupe_preserving_order
+
 
 # ── Request ──────────────────────────────────────────────────────────────────
 
@@ -50,20 +52,13 @@ class SearchRequest(BaseModel):
     @classmethod
     def _strip_keyword(cls, v: str) -> str:
         """Trim surrounding whitespace and reject whitespace-only keywords."""
-        v = v.strip()
-        if not v:
-            raise ValueError("keyword must not be empty or whitespace")
-        return v
+        return clean_keyword(v)
 
     @field_validator("sources")
     @classmethod
     def _dedupe_sources(cls, v: list[str]) -> list[str]:
         """Remove duplicate sources while preserving order; reject empty."""
-        seen: set[str] = set()
-        deduped = [s for s in v if not (s in seen or seen.add(s))]
-        if not deduped:
-            raise ValueError("at least one source must be selected")
-        return deduped
+        return dedupe_preserving_order(v)
 
 
 # ── Response ─────────────────────────────────────────────────────────────────
@@ -120,6 +115,20 @@ class TopKeyword(BaseModel):
     count: int
 
 
+class TimelinePoint(BaseModel):
+    """Sentiment counts for a single publication date (for the trend chart)."""
+    date: str
+    positive: int
+    neutral: int
+    negative: int
+
+
+class ConfidenceBucket(BaseModel):
+    """How many predictions fell into a given confidence range."""
+    range: str
+    count: int
+
+
 class SearchResponse(BaseModel):
     """Aggregated result returned by the search and results endpoints.
 
@@ -131,6 +140,8 @@ class SearchResponse(BaseModel):
         platform_breakdown: Counts grouped by source platform.
         region_distribution: Counts grouped by province (descending).
         top_keywords: Most frequent tokens across the articles.
+        sentiment_timeline: Sentiment counts grouped by publication date.
+        confidence_distribution: Prediction counts grouped by confidence range.
         articles: The individual analysed articles.
     """
     keyword: str
@@ -140,4 +151,18 @@ class SearchResponse(BaseModel):
     platform_breakdown: list[PlatformBreakdown]
     region_distribution: list[RegionCount]
     top_keywords: list[TopKeyword]
+    sentiment_timeline: list[TimelinePoint]
+    confidence_distribution: list[ConfidenceBucket]
     articles: list[ArticleOut]
+
+
+class HistoryItem(BaseModel):
+    """One entry in the search-history list: a keyword and its stored count."""
+    keyword: str
+    count: int
+
+
+class HealthResponse(BaseModel):
+    """Body returned by the ``/health`` liveness probe."""
+    status: str
+    timestamp: str

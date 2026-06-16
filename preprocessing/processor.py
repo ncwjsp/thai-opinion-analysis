@@ -32,9 +32,7 @@ Steps (as described in the thesis proposal §3.2):
   5. Deduplication  — exact (MD5) + near-duplicate (MinHash + LSH)
 """
 
-import hashlib
 import logging
-import re
 from typing import Optional
 
 from pythainlp import word_tokenize
@@ -52,6 +50,15 @@ from datasketch import MinHash, MinHashLSH
 from config import MINHASH_NGRAM, MINHASH_NUM_PERM, NER_ENGINE
 from crawler.base import RawItem
 from database import Article
+from utils import (
+    char_ngrams,
+    collapse_whitespace,
+    md5_hash,
+    strip_emoji,
+    strip_html,
+    strip_special,
+    strip_urls,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,18 +108,6 @@ THAI_PROVINCES = {
 
 _STOPWORDS = set(thai_stopwords())
 
-# ── Regex patterns ───────────────────────────────────────────────────────────
-_RE_HTML     = re.compile(r"<[^>]+>")
-_RE_URL      = re.compile(r"https?://\S+|www\.\S+")
-_RE_EMOJI    = re.compile(
-    "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF"
-    "\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF"
-    "\U00002702-\U000027B0\U000024C2-\U0001F251]+",
-    flags=re.UNICODE,
-)
-_RE_SPECIAL  = re.compile(r"[^\u0E00-\u0E7Fa-zA-Z0-9\s]")
-_RE_SPACES   = re.compile(r"\s+")
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # Public API
@@ -123,6 +118,7 @@ def clean_text(text: str) -> str:
 
     Applies, in order: HTML tag removal, URL removal, emoji removal, removal of
     characters outside the Thai/Latin/digit ranges, and whitespace collapsing.
+    Each step delegates to the shared helpers in :mod:`utils`.
 
     Args:
         text: Raw text from a crawled item.
@@ -132,12 +128,11 @@ def clean_text(text: str) -> str:
     """
     if not text:
         return ""
-    text = _RE_HTML.sub(" ", text)
-    text = _RE_URL.sub(" ", text)
-    text = _RE_EMOJI.sub(" ", text)
-    text = _RE_SPECIAL.sub(" ", text)
-    text = _RE_SPACES.sub(" ", text)
-    return text.strip()
+    text = strip_html(text)
+    text = strip_urls(text)
+    text = strip_emoji(text)
+    text = strip_special(text)
+    return collapse_whitespace(text)
 
 
 def tokenize(text: str) -> list[str]:
@@ -244,10 +239,10 @@ class Deduplicator:
             item; ``False`` otherwise (in which case it is now indexed).
         """
         # Level 1 — exact
-        md5 = hashlib.md5(text.encode("utf-8")).hexdigest()
-        if md5 in self._hash_set:
+        digest = md5_hash(text)
+        if digest in self._hash_set:
             return True
-        self._hash_set.add(md5)
+        self._hash_set.add(digest)
 
         # Level 2 — near-duplicate via MinHash
         mh = _make_minhash(text, self._num_perm)
@@ -276,9 +271,8 @@ def _make_minhash(text: str, num_perm: int = MINHASH_NUM_PERM) -> MinHash:
         A populated :class:`datasketch.MinHash`.
     """
     mh = MinHash(num_perm=num_perm)
-    n = MINHASH_NGRAM
-    for i in range(len(text) - n + 1):
-        mh.update(text[i:i + n].encode("utf-8"))
+    for gram in char_ngrams(text, MINHASH_NGRAM):
+        mh.update(gram)
     return mh
 
 

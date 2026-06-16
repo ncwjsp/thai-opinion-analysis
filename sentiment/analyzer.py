@@ -37,23 +37,16 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Literal
 
 from config import HF_API_BATCH, MODEL_MAX_LENGTH, SENTIMENT_BATCH_SIZE
+from enums import ModelName, normalize_label
+from exceptions import ModelError, ModelLoadError
 
 logger = logging.getLogger(__name__)
 
-SentimentLabel = Literal["positive", "neutral", "negative"]
-
 MODEL_IDS: dict[str, str] = {
-    "xlm-roberta":   "cardiffnlp/twitter-xlm-roberta-base-sentiment",
-    "wangchanberta": "phoner45/wangchan-sentiment-thai-text-model",
-}
-
-_LABEL_MAP: dict[str, SentimentLabel] = {
-    "LABEL_0": "negative", "LABEL_1": "neutral", "LABEL_2": "positive",
-    "pos": "positive", "neu": "neutral", "neg": "negative",
-    "positive": "positive", "neutral": "neutral", "negative": "negative",
+    ModelName.XLM_ROBERTA.value:   "cardiffnlp/twitter-xlm-roberta-base-sentiment",
+    ModelName.WANGCHANBERTA.value: "phoner45/wangchan-sentiment-thai-text-model",
 }
 
 
@@ -65,7 +58,7 @@ class SentimentResult:
         label: One of ``"positive"``, ``"neutral"``, ``"negative"``.
         score: Model confidence for ``label``, in the range ``[0, 1]``.
     """
-    label: SentimentLabel
+    label: str
     score: float
 
 
@@ -117,7 +110,7 @@ class SentimentAnalyzer:
             One :class:`SentimentResult` per input, in order.
 
         Raises:
-            RuntimeError: If a batch cannot be classified after its retries.
+            ModelError: If a batch cannot be classified after its retries.
         """
         import requests as _req
         url = f"https://router.huggingface.co/hf-inference/models/{self._model_id}"
@@ -133,7 +126,7 @@ class SentimentAnalyzer:
                 except (_req.Timeout, _req.ConnectionError) as exc:
                     logger.warning("HF API attempt %d failed: %s", attempt + 1, exc)
                     if attempt == 2:
-                        raise RuntimeError("HuggingFace API unreachable after retries") from exc
+                        raise ModelError("HuggingFace API unreachable after retries") from exc
                     time.sleep(2 ** attempt)
                     continue
                 if resp.status_code == 503:
@@ -145,7 +138,7 @@ class SentimentAnalyzer:
                 resp.raise_for_status()
                 break
             if resp is None or not resp.ok:
-                raise RuntimeError("HuggingFace API failed to classify a batch")
+                raise ModelError("HuggingFace API failed to classify a batch")
             raw = resp.json()
             # Response shape: [[{label, score}, ...], ...]  or [{label,score},...]
             if isinstance(raw, list) and raw and isinstance(raw[0], list):
@@ -153,13 +146,13 @@ class SentimentAnalyzer:
                 for item_scores in raw:
                     best = max(item_scores, key=lambda x: x["score"])
                     results.append(SentimentResult(
-                        label=_LABEL_MAP.get(best["label"], "neutral"),
+                        label=normalize_label(best["label"]),
                         score=float(best["score"]),
                     ))
             else:
                 best = max(raw, key=lambda x: x["score"])
                 results.append(SentimentResult(
-                    label=_LABEL_MAP.get(best["label"], "neutral"),
+                    label=normalize_label(best["label"]),
                     score=float(best["score"]),
                 ))
         return results
@@ -175,7 +168,7 @@ class SentimentAnalyzer:
             The cached sentiment-analysis pipeline.
 
         Raises:
-            RuntimeError: If the model cannot be loaded (e.g. missing weights
+            ModelLoadError: If the model cannot be loaded (e.g. missing weights
                 or insufficient memory).
         """
         if self._pipeline is None:
@@ -192,7 +185,7 @@ class SentimentAnalyzer:
                 logger.info("Local model loaded.")
             except Exception as exc:
                 logger.error("Failed to load local model %s: %s", self._model_id, exc)
-                raise RuntimeError(f"Could not load sentiment model {self._model_id}") from exc
+                raise ModelLoadError(f"Could not load sentiment model {self._model_id}") from exc
         return self._pipeline
 
     # ── Public interface ─────────────────────────────────────────────────────
@@ -230,7 +223,7 @@ class SentimentAnalyzer:
         outputs = pipe(texts, batch_size=SENTIMENT_BATCH_SIZE)
         return [
             SentimentResult(
-                label=_LABEL_MAP.get(out["label"], "neutral"),
+                label=normalize_label(out["label"]),
                 score=float(out["score"]),
             )
             for out in outputs

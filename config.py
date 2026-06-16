@@ -33,8 +33,10 @@ application's logging format and level are configured.
 
 import logging
 import os
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 BASE_DIR = Path(__file__).parent
@@ -47,14 +49,20 @@ BASE_DIR = Path(__file__).parent
 LOG_FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
+# Rotating log-file settings. Logs go both to the console and to this file so a
+# record survives after the terminal is closed.
+LOG_FILE = str(BASE_DIR / "app.log")
+LOG_MAX_BYTES = 1_000_000   # rotate once the file reaches ~1 MB
+LOG_BACKUP_COUNT = 3        # keep this many rotated files
+
 
 def setup_logging(level: str | None = None) -> None:
     """Configure root logging for the whole application.
 
     Called once at process start-up (see ``run.py``). Every module obtains its
     own logger via ``logging.getLogger(__name__)`` and inherits this
-    configuration, so log lines are formatted consistently and share a single
-    output stream.
+    configuration, so log lines are formatted consistently and share both a
+    console stream and a rotating log file.
 
     Args:
         level: Optional log level name (e.g. ``"DEBUG"``, ``"INFO"``). When
@@ -62,11 +70,19 @@ def setup_logging(level: str | None = None) -> None:
             used, defaulting to ``"INFO"``.
     """
     resolved = (level or os.environ.get("LOG_LEVEL", "INFO")).upper()
-    logging.basicConfig(
-        level=getattr(logging, resolved, logging.INFO),
-        format=LOG_FORMAT,
-        datefmt=LOG_DATEFMT,
+    log_level = getattr(logging, resolved, logging.INFO)
+    formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT)
+
+    console = logging.StreamHandler()
+    console.setFormatter(formatter)
+
+    file_handler = RotatingFileHandler(
+        LOG_FILE, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT,
+        encoding="utf-8",
     )
+    file_handler.setFormatter(formatter)
+
+    logging.basicConfig(level=log_level, handlers=[console, file_handler])
     # Quiet down noisy third-party loggers that would otherwise flood output.
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("transformers").setLevel(logging.ERROR)
@@ -113,6 +129,9 @@ HF_API_BATCH = 100
 # How many of the most frequent keywords to return in a search response.
 TOP_KEYWORDS_N = 30
 
+# Seconds an identical search result stays cached before it is recomputed.
+CACHE_TTL_SECONDS = 300
+
 
 class Settings(BaseSettings):
     """Per-deployment settings, overridable via environment / ``.env``.
@@ -157,6 +176,14 @@ class Settings(BaseSettings):
 
     # CORS (for frontend dev)
     CORS_ORIGINS: list[str] = ["*"]
+
+    @field_validator("NEAR_DUP_THRESHOLD")
+    @classmethod
+    def _check_threshold(cls, v: float) -> float:
+        """Reject a deduplication threshold outside the valid [0, 1] range."""
+        if not 0.0 <= v <= 1.0:
+            raise ValueError("NEAR_DUP_THRESHOLD must be between 0 and 1")
+        return v
 
     class Config:
         env_file = ".env"

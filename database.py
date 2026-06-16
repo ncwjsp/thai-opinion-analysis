@@ -24,7 +24,6 @@ production). Access is async via SQLAlchemy's asyncio engine so database I/O
 never blocks the FastAPI event loop.
 """
 
-import hashlib
 import logging
 from datetime import datetime
 
@@ -33,6 +32,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from config import settings
+from utils import md5_hash
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class Article(Base):
         Returns:
             A 32-character hexadecimal MD5 digest.
         """
-        return hashlib.md5(text.encode("utf-8")).hexdigest()
+        return md5_hash(text)
 
 
 # ── Async engine (used by FastAPI) ──────────────────────────────────────────

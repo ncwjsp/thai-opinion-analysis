@@ -40,14 +40,19 @@ import pathlib
 from collections import Counter
 from datetime import datetime
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 
-from config import settings, TOP_KEYWORDS_N
+from config import settings, TOP_KEYWORDS_N, CACHE_TTL_SECONDS
+from cache import TTLCache, make_search_key
+from exceptions import (
+    AppError, DataSourceUnavailable, NoUsableData, ModelError,
+    PersistenceError, NoResultsFound,
+)
 from database import Article, init_db, get_db
 from crawler.base import RawItem
 from crawler.google_news_crawler import crawl_google_news
@@ -58,9 +63,13 @@ from sentiment.analyzer import get_analyzer
 from api.schemas import (
     SearchRequest, SearchResponse, ArticleOut,
     SentimentSummary, PlatformBreakdown, RegionCount, TopKeyword,
+    TimelinePoint, ConfidenceBucket, HistoryItem, HealthResponse,
 )
 
 logger = logging.getLogger(__name__)
+
+# Process-wide cache: identical searches within the TTL skip the pipeline.
+_search_cache = TTLCache(CACHE_TTL_SECONDS)
 
 app = FastAPI(
     title="Thai Opinion Analysis API",
@@ -74,6 +83,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(AppError)
+async def _handle_app_error(request: Request, exc: AppError) -> JSONResponse:
+    """Translate any :class:`AppError` into its JSON HTTP response.
+
+    Centralising this means route handlers can simply raise a domain exception
+    and rely on its ``status_code``/``detail`` being applied consistently.
+    """
+    logger.warning("AppError on %s: %s", request.url.path, exc.detail)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.on_event("startup")
@@ -115,9 +135,10 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
         A :class:`SearchResponse` with summary, breakdowns, and articles.
 
     Raises:
-        HTTPException: ``503`` if nothing could be crawled, ``422`` if every
-            crawled item was removed by deduplication, or ``500`` if sentiment
-            analysis fails.
+        DataSourceUnavailable: ``503`` if nothing could be crawled.
+        NoUsableData: ``422`` if every crawled item was removed by dedup.
+        ModelError: ``500`` if sentiment analysis fails.
+        PersistenceError: ``500`` if results cannot be saved.
     """
     keyword   = req.keyword.strip()
     analyzer  = get_analyzer(req.model)
@@ -125,6 +146,13 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
     max_items = req.max_items_per_source
     loop      = asyncio.get_event_loop()
     logger.info("Search %r sources=%s model=%s", keyword, req.sources, req.model)
+
+    # ── 0. Return a cached response for an identical recent search ────────────
+    cache_key = make_search_key(keyword, req.model, req.sources)
+    cached = _search_cache.get(cache_key)
+    if cached is not None:
+        logger.info("Cache hit for %s", cache_key)
+        return cached
 
     # ── 1. Crawl (run blocking crawlers in thread-pool) ───────────────────────
     crawl_tasks = []
@@ -157,25 +185,21 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
 
     if not clean_items:
         if total_crawled == 0:
-            raise HTTPException(
-                status_code=503,
-                detail="Could not fetch data from any source. Check your internet connection and try again.",
-            )
-        raise HTTPException(
-            status_code=422,
-            detail=f"Crawled {total_crawled} items but all were removed by deduplication. Try a different keyword.",
+            raise DataSourceUnavailable()
+        raise NoUsableData(
+            f"Crawled {total_crawled} items but all were removed by deduplication. "
+            "Try a different keyword."
         )
 
     # ── 3. Sentiment analysis (batched) ──────────────────────────────────────
     texts = [item.text_content for item in clean_items]
     try:
         sentiments = await loop.run_in_executor(None, analyzer.predict_batch, texts)
+    except AppError:
+        raise
     except Exception as exc:
         logger.exception("Sentiment analysis failed for %r", keyword)
-        raise HTTPException(
-            status_code=500,
-            detail="Sentiment analysis failed. Please try again.",
-        ) from exc
+        raise ModelError() from exc
     logger.info("Classified %d items for %r", len(sentiments), keyword)
 
     # ── 4. Persist to DB ─────────────────────────────────────────────────────
@@ -204,10 +228,7 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
     except Exception as exc:
         await db.rollback()
         logger.exception("Failed to persist results for %r", keyword)
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to save results. Please try again.",
-        ) from exc
+        raise PersistenceError() from exc
     logger.info("Persisted results for %r", keyword)
 
     # ── 5. Build aggregated response from DB (only selected sources) ─────────
@@ -225,7 +246,7 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
     )
     all_articles: list[Article] = result.scalars().all()
 
-    return SearchResponse(
+    response = SearchResponse(
         keyword             = keyword,
         total_crawled       = total_crawled,
         total_after_dedup   = total_after_dedup,
@@ -233,13 +254,17 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
         platform_breakdown  = _platform_breakdown(all_articles),
         region_distribution = _region_distribution(all_articles),
         top_keywords        = _top_keywords(all_articles),
+        sentiment_timeline  = _sentiment_timeline(all_articles),
+        confidence_distribution = _confidence_distribution(all_articles),
         articles            = [ArticleOut.model_validate(a) for a in all_articles],
     )
+    _search_cache.set(cache_key, response)
+    return response
 
 
 # ── GET /api/history ─────────────────────────────────────────────────────────
 
-@app.get("/api/history")
+@app.get("/api/history", response_model=list[HistoryItem])
 async def history(db: AsyncSession = Depends(get_db)):
     """List previously searched keywords with their stored article counts.
 
@@ -247,14 +272,14 @@ async def history(db: AsyncSession = Depends(get_db)):
         db: Injected database session.
 
     Returns:
-        A list of ``{"keyword", "count"}`` dicts, most-searched first.
+        A list of :class:`HistoryItem`, most-searched first.
     """
     result = await db.execute(
         select(Article.keyword, func.count(Article.id).label("count"))
         .group_by(Article.keyword)
         .order_by(func.count(Article.id).desc())
     )
-    return [{"keyword": r.keyword, "count": r.count} for r in result.all()]
+    return [HistoryItem(keyword=r.keyword, count=r.count) for r in result.all()]
 
 
 # ── GET /api/results/{keyword} ───────────────────────────────────────────────
@@ -274,14 +299,14 @@ async def get_results(keyword: str, db: AsyncSession = Depends(get_db)):
         A :class:`SearchResponse` built from the stored articles.
 
     Raises:
-        HTTPException: ``404`` if no stored results exist for ``keyword``.
+        NoResultsFound: ``404`` if no stored results exist for ``keyword``.
     """
     result = await db.execute(
         select(Article).where(Article.keyword == keyword)
     )
     articles = result.scalars().all()
     if not articles:
-        raise HTTPException(status_code=404, detail="No results found.")
+        raise NoResultsFound()
     return SearchResponse(
         keyword             = keyword,
         total_crawled       = len(articles),
@@ -290,16 +315,18 @@ async def get_results(keyword: str, db: AsyncSession = Depends(get_db)):
         platform_breakdown  = _platform_breakdown(articles),
         region_distribution = _region_distribution(articles),
         top_keywords        = _top_keywords(articles),
+        sentiment_timeline  = _sentiment_timeline(articles),
+        confidence_distribution = _confidence_distribution(articles),
         articles            = [ArticleOut.model_validate(a) for a in articles],
     )
 
 
 # ── GET /health ───────────────────────────────────────────────────────────────
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 async def health():
     """Liveness probe — returns ``ok`` and the current server time."""
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return HealthResponse(status="ok", timestamp=datetime.utcnow().isoformat())
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -343,6 +370,53 @@ def _region_distribution(articles: list[Article]) -> list[RegionCount]:
         [RegionCount(region=k, **v) for k, v in regions.items()],
         key=lambda x: x.count, reverse=True,
     )
+
+
+def _sentiment_timeline(articles: list[Article]) -> list[TimelinePoint]:
+    """Group ``articles`` by publication date with per-label counts.
+
+    Powers the "sentiment trend over time" view: articles are bucketed by the
+    date part of ``published_at`` (those without a date are skipped) and the
+    resulting points are returned in chronological order.
+
+    Args:
+        articles: Articles to bucket.
+
+    Returns:
+        One :class:`TimelinePoint` per date, ascending by date.
+    """
+    days: dict[str, dict] = {}
+    for a in articles:
+        if a.published_at is None:
+            continue
+        day = a.published_at.strftime("%Y-%m-%d")
+        bucket = days.setdefault(day, {"positive": 0, "neutral": 0, "negative": 0})
+        bucket[a.sentiment_label or "neutral"] += 1
+    return [
+        TimelinePoint(date=d, **counts)
+        for d, counts in sorted(days.items())
+    ]
+
+
+def _confidence_distribution(articles: list[Article]) -> list[ConfidenceBucket]:
+    """Bucket prediction confidences into fixed 20%-wide ranges.
+
+    Args:
+        articles: Articles whose ``confidence_score`` is examined.
+
+    Returns:
+        Five :class:`ConfidenceBucket` entries covering 0–20% … 80–100%.
+    """
+    edges = [(0.0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.01)]
+    labels = ["0-20%", "20-40%", "40-60%", "60-80%", "80-100%"]
+    counts = [0] * len(edges)
+    for a in articles:
+        score = a.confidence_score or 0.0
+        for i, (lo, hi) in enumerate(edges):
+            if lo <= score < hi:
+                counts[i] += 1
+                break
+    return [ConfidenceBucket(range=labels[i], count=counts[i]) for i in range(len(edges))]
 
 
 def _top_keywords(articles: list[Article], top_n: int = TOP_KEYWORDS_N) -> list[TopKeyword]:
