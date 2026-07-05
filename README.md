@@ -19,7 +19,7 @@ The system is organized into four layers:
 ```
 ┌─────────────────────────────────────────────────────┐
 │              Data Collection Layer                   │
-│         Scrapy (static sites) + Selenium (JS)        │
+│   Google News RSS + Pantip (requests/BeautifulSoup)  │
 └────────────────────┬────────────────────────────────┘
                      ▼
 ┌─────────────────────────────────────────────────────┐
@@ -30,7 +30,7 @@ The system is organized into four layers:
                      ▼
 ┌─────────────────────────────────────────────────────┐
 │           Sentiment Analysis Layer                   │
-│  WangchanBERTa (primary) · XLM-RoBERTa (secondary)  │
+│  XLM-RoBERTa (primary) · WangchanBERTa (optional)   │
 │       Positive / Neutral / Negative + confidence     │
 └────────────────────┬────────────────────────────────┘
                      ▼
@@ -47,8 +47,7 @@ The system is organized into four layers:
 
 | Layer                  | Technology                                       |
 | ---------------------- | ------------------------------------------------ |
-| Web crawling (static)  | Scrapy 2.x                                       |
-| Web crawling (dynamic) | Selenium + ChromeDriver                          |
+| Web crawling           | requests + BeautifulSoup (Pantip), RSS (Google News) |
 | Thai NLP               | PyThaiNLP (newmm tokenizer, NER, stopwords)      |
 | Deduplication          | MD5 exact + MinHash LSH near-duplicate           |
 | Sentiment model        | XLM-RoBERTa (primary) / WangchanBERTa (optional) |
