@@ -624,6 +624,344 @@
     .spacer { flex: 1; }
     .text-right { text-align: right; }
     .mt-1 { margin-top: .5rem; }
+
+    /* ============================================================
+       SMOOTH SCROLL
+    ============================================================ */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    /* ============================================================
+       FOCUS VISIBLE
+    ============================================================ */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* ============================================================
+       SELECTION COLOR
+    ============================================================ */
+    ::selection {
+      background: #bfdbfe;
+      color: #1e3a5f;
+    }
+    [data-theme="dark"] ::selection {
+      background: #1e3a5f;
+      color: #bfdbfe;
+    }
+
+    /* ============================================================
+       TOOLTIP (native title enhancement via CSS)
+    ============================================================ */
+    [title] {
+      cursor: help;
+    }
+    .toolbar-btn[title] {
+      cursor: pointer;
+    }
+
+    /* ============================================================
+       TABLE ROW STRIPING (subtle)
+    ============================================================ */
+    #tableBody tr:nth-child(even) td {
+      background: rgba(0, 0, 0, 0.012);
+    }
+    [data-theme="dark"] #tableBody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    /* ============================================================
+       CONFIDENCE SCORE COLOR HINT
+    ============================================================ */
+    td.conf-high { color: #15803d; font-weight: 600; }
+    td.conf-mid  { color: #b45309; }
+    td.conf-low  { color: #b91c1c; }
+    [data-theme="dark"] td.conf-high { color: #86efac; }
+    [data-theme="dark"] td.conf-mid  { color: #fcd34d; }
+    [data-theme="dark"] td.conf-low  { color: #fca5a5; }
+
+    /* ============================================================
+       SCROLLBAR STYLING (webkit)
+    ============================================================ */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--muted);
+    }
+
+    /* ============================================================
+       CARD HOVER LIFT (very subtle)
+    ============================================================ */
+    .card {
+      transition: background 0.3s, border-color 0.3s, box-shadow 0.25s, transform 0.25s;
+    }
+    .card:hover {
+      box-shadow: 0 4px 16px var(--shadow);
+      transform: translateY(-1px);
+    }
+
+    /* ============================================================
+       PRINT STYLES
+    ============================================================ */
+    @media print {
+      header {
+        background: #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .search-bar,
+      .options,
+      .history-bar,
+      #status,
+      .filter-toolbar,
+      .pagination,
+      #loadingOverlay,
+      #toast,
+      .header-controls {
+        display: none !important;
+      }
+      body {
+        background: #fff !important;
+      }
+      .card {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        transform: none !important;
+      }
+      .card:hover {
+        transform: none !important;
+        box-shadow: none !important;
+      }
+      table {
+        page-break-inside: auto;
+        font-size: .8rem;
+      }
+      tr {
+        page-break-inside: avoid;
+      }
+      a {
+        color: #000 !important;
+        text-decoration: none !important;
+      }
+      main {
+        max-width: 100% !important;
+        padding: 0 !important;
+      }
+      .grid-2 {
+        grid-template-columns: 1fr 1fr !important;
+      }
+      canvas {
+        max-height: 200px !important;
+      }
+      .badge {
+        border: 1px solid #999;
+      }
+    }
+
+    /* ============================================================
+       REDUCED MOTION
+    ============================================================ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ============================================================
+       PLATFORM BADGE EXTRAS
+    ============================================================ */
+    .plat-thairath   { background: #fde8d8; color: #9a3412; }
+    .plat-matichon   { background: #e0f2fe; color: #075985; }
+    .plat-prachachat { background: #f0fdf4; color: #166534; }
+    .plat-dailynews  { background: #fef3c7; color: #92400e; }
+    .plat-posttoday  { background: #ede9fe; color: #5b21b6; }
+    .plat-nationtv   { background: #fce7f3; color: #9d174d; }
+    .plat-thaipbs    { background: #ecfdf5; color: #065f46; }
+    .plat-bangkokpost { background: #dbeafe; color: #1e40af; }
+
+    /* ============================================================
+       WORD CLOUD SENTIMENT TINT
+    ============================================================ */
+    .wc-word.wc-pos {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .wc-word.wc-neg {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    [data-theme="dark"] .wc-word.wc-pos {
+      background: #14532d;
+      color: #86efac;
+    }
+    [data-theme="dark"] .wc-word.wc-neg {
+      background: #7f1d1d;
+      color: #fca5a5;
+    }
+
+    /* ============================================================
+       REGION BAR HOVER
+    ============================================================ */
+    .region-row:hover .region-bar {
+      filter: brightness(1.15);
+    }
+    .region-row {
+      transition: opacity 0.2s;
+    }
+    .region-row:hover {
+      opacity: 0.9;
+    }
+
+    /* ============================================================
+       HISTORY CHIP TRANSITION
+    ============================================================ */
+    .history-chip {
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .history-chip:hover {
+      transform: translateY(-1px);
+    }
+
+    /* ============================================================
+       SEARCH BUTTON PULSE (only when idle)
+    ============================================================ */
+    @keyframes subtle-pulse {
+      0%, 100% { box-shadow: 0 6px 18px rgba(0,0,0,0.2); }
+      50%       { box-shadow: 0 8px 24px rgba(0,0,0,0.32); }
+    }
+    .search-bar button:not(:disabled):not(:hover) {
+      animation: subtle-pulse 3s ease-in-out infinite;
+    }
+
+    /* ============================================================
+       STAT BOX HOVER
+    ============================================================ */
+    .stat-box {
+      transition: transform 0.2s;
+      cursor: default;
+    }
+    .stat-box:hover {
+      transform: scale(1.06);
+    }
+
+    /* ============================================================
+       NO PRINT BUTTON (hidden; only affects @media print)
+    ============================================================ */
+    .no-print {
+      /* used with @media print above */
+    }
+
+    /* ============================================================
+       BADGE TRANSITION
+    ============================================================ */
+    .badge {
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .badge:hover {
+      opacity: 0.85;
+      transform: scale(1.05);
+    }
+
+    /* ============================================================
+       TABLE HEADER STICKY
+    ============================================================ */
+    .table-wrap {
+      position: relative;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ============================================================
+       LINK HOVER COLOR
+    ============================================================ */
+    a {
+      transition: color 0.18s;
+    }
+    a:hover {
+      color: #1d4ed8;
+    }
+    [data-theme="dark"] a:hover {
+      color: #93c5fd;
+    }
+
+    /* ============================================================
+       INPUT PLACEHOLDER COLOR
+    ============================================================ */
+    .search-bar input::placeholder {
+      color: var(--muted);
+      opacity: 0.7;
+    }
+
+    /* ============================================================
+       OPTIONS LABEL HOVER
+    ============================================================ */
+    .options label {
+      transition: color 0.18s;
+    }
+    .options label:hover {
+      color: var(--text);
+    }
+
+    /* ============================================================
+       LANG BUTTON TRANSITION
+    ============================================================ */
+    .lang-btn {
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* ============================================================
+       CHART CANVAS BORDER RADIUS
+    ============================================================ */
+    canvas {
+      border-radius: 6px;
+    }
+
+    /* ============================================================
+       FILTER GROUP SELECT HOVER
+    ============================================================ */
+    .filter-group select:hover,
+    .filter-group input[type="date"]:hover {
+      border-color: var(--muted);
+    }
+
+    /* ============================================================
+       PAGE SIZE SELECT HOVER
+    ============================================================ */
+    .page-size-sel:hover {
+      border-color: var(--accent);
+    }
+
+    /* ============================================================
+       WORD CLOUD MIN HEIGHT EXPAND
+    ============================================================ */
+    #wordcloud:empty::after {
+      content: '—';
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    /* ============================================================
+       FOOTER SPACING
+    ============================================================ */
+    main {
+      padding-bottom: 4rem;
+    }
   </style>
 </head>
 <body>
@@ -1657,6 +1995,10 @@ function renderTablePage() {
     const conf  = a.confidence_score != null
       ? (a.confidence_score * 100).toFixed(1) + '%'
       : '—';
+    const confClass = a.confidence_score == null ? ''
+      : a.confidence_score >= 0.8 ? 'conf-high'
+      : a.confidence_score >= 0.5 ? 'conf-mid'
+      : 'conf-low';
 
     const rawTitle = a.title || (a.text_content ? a.text_content.slice(0, 80) : '');
     const displayTitle = highlightKeyword(esc(rawTitle), currentKeyword);
@@ -1672,7 +2014,7 @@ function renderTablePage() {
       <td><span class="plat plat-${plat}">${plat}</span></td>
       <td class="text-cell">${link}</td>
       <td>${badge}</td>
-      <td>${conf}</td>
+      <td class="${confClass}">${conf}</td>
       <td>${esc(a.region || '—')}</td>
       <td>${date}</td>
     </tr>`;
